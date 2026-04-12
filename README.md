@@ -1,2 +1,2 @@
-# Comp2Final
-This is the GitHub repository for team MOSFET for the comp 2 final. 
+# ECE 3822 Spring 2026 Final Project: Team MOSFET
+This is the GitHub repository for Team MOSFET's Computation 2 final project. 
