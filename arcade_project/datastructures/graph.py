@@ -3,17 +3,17 @@ from datastructures.hash_table import HashTable
 from datastructures.array import ArrayList
 
 class Edge:
-  def __init__(self, destination, weight=1):
-      self.destination = destination
-      self.weight = weight
+    def __init__(self, destination, weight=1):
+        self.destination = destination
+        self.weight = weight
 
-  def __eq__(self, other)
-      # Needed so ArrayList.remove() works correctly
-      return (
-          isinstance(other, Edge)
-          and self.destination == other.destination
-          and self.weight == other.weight
-      )
+    def __eq__(self, other)
+        # Needed so ArrayList.remove() works correctly
+        return (
+            isinstance(other, Edge)
+            and self.destination == other.destination
+            and self.weight == other.weight
+        )
 
 class Graph:
     def __init__(self):
