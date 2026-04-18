@@ -5,7 +5,7 @@ A single node that holds a key/value pair and a pointer to the next node.
 Used as the building block for the LinkedList, which is used for collision
 chaining in our hash table.
 
-Author: [Deven Garland]
+Author: Ellie Lutz
 Date: [4/17/2026]
 Lab: Final Project - Hash Table
 """
