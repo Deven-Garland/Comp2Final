@@ -28,7 +28,7 @@ class BinarySearchTree:
         - left if the value is smaller, right if larger, until an empty spot is found
         ignoring duplicate values
         """
-        new_node = Node(value)
+        new_node = Node_BST(value)
         if self.root is None:
             self.root = new_node
             return
