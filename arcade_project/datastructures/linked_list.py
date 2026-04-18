@@ -50,7 +50,7 @@ class LinkedList:
 
         # Key was not found so add a new node at the head
         # We insert at the head because it's O(1) instead of walking to the end
-        new_node = Node(key, value)
+        new_node = Node_LL(key, value)
         new_node.next = self.head
         self.head = new_node
         # Increment size
