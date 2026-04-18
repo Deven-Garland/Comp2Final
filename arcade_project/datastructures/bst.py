@@ -8,22 +8,8 @@ Author: Mennah Khaled Dewidar
 Date: 4/17/2026
 Computation Final Project
 """
-class Node:
-    """
-    Implement the methods discussed here:
-    https://www.geeksforgeeks.org/python/binary-search-tree-in-python/
-    Creating a node class for basic structure
-    """
- 
-    def __init__(self, value):
-        """
-        instance variables needed: the value stored, left and right node which is initially empty
-        """
-        self.value = value
-        self.left_node = None
-        self.right_node = None
- 
- 
+from .node import Node_BST
+
 class BinarySearchTree:
     """
     a BST where left subtree values are smaller than the root and right subtree values
