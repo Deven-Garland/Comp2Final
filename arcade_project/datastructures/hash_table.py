@@ -13,7 +13,7 @@ Supports:
 - O(n) worst case if many keys hash to the same bucket
 - Automatic resizing (doubles capacity) when load factor gets too high
 
-Author: [Deven Garland]
+Author: Ellie Lutz
 Date: [4/17/2026]
 Lab: Final Project - Hash Table
 """

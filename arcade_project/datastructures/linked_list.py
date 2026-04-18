@@ -10,7 +10,7 @@ Supports:
 - O(n) search by key through the chain
 - O(n) removal by key
 
-Author: [Deven Garland]
+Author: Ellie Lutz
 Date: [4/17/2026]
 Lab: Final Project - Hash Table
 """
