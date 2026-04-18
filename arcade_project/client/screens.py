@@ -1,7 +1,7 @@
 """
 UI screens for the arcade client (pygame).
 
-Screens: Login, Game Browser, Match Queue, Play Session (game area + chat).
+Screens: Login, Game Browser, Stats, Match Queue, Play Session (game area + chat).
 
 Wire callbacks from arcade_client / connection layer; this module only handles
 drawing and input.
@@ -203,11 +203,13 @@ class BrowserScreen:
         rect: pygame.Rect,
         on_play: Callable[[str], None],
         on_logout: Callable[[], None],
+        on_stats: Callable[[], None],
         games: Optional[List[GameInfo]] = None,
     ):
         self.rect = rect
         self.on_play = on_play
         self.on_logout = on_logout
+        self.on_stats = on_stats
         self.games: List[GameInfo] = games or [
             GameInfo("deven", "Deven's Game", "Fast reflex mini-game"),
             GameInfo("ellie", "Ellie's Game", "Puzzle challenge"),
@@ -220,6 +222,7 @@ class BrowserScreen:
         self._hover_row = -1
         pad = 24
         self._list_rect = pygame.Rect(rect.x + pad, rect.y + 100, rect.width - 2 * pad, rect.height - 200)
+        self._btn_stats = Button(pygame.Rect(rect.right - pad - 130, rect.y + 24, 120, 36), "View stats")
         self._btn_play = Button(pygame.Rect(rect.right - pad - 160, rect.bottom - 72, 150, 44), "Find match")
         self._btn_out = Button(pygame.Rect(rect.x + pad, rect.bottom - 72, 120, 44), "Log out")
 
@@ -230,7 +233,9 @@ class BrowserScreen:
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self._btn_play.contains(event.pos) and self._selected is not None:
+            if self._btn_stats.contains(event.pos):
+                self.on_stats()
+            elif self._btn_play.contains(event.pos) and self._selected is not None:
                 gid = self.games[self._selected].id
                 self.on_play(gid)
             elif self._btn_out.contains(event.pos):
@@ -284,9 +289,100 @@ class BrowserScreen:
         surface.set_clip(clip)
 
         mp = pygame.mouse.get_pos()
+        self._btn_stats.draw(surface, self._btn_stats.contains(mp))
         self._btn_play.enabled = self._selected is not None
         self._btn_play.draw(surface, self._btn_play.contains(mp))
         self._btn_out.draw(surface, self._btn_out.contains(mp))
+
+
+# --- Player stats ----------------------------------------------------------
+
+
+@dataclass
+class PlayerStats:
+    """Snapshot for the stats screen (fill from platform server)."""
+
+    games_played: int = 0
+    messages_sent: int = 0
+    friends: int = 0
+    hours_playing: float = 0.0
+
+
+def _format_hours(hours: float) -> str:
+    if hours < 0:
+        hours = 0.0
+    if hours >= 100:
+        return f"{hours:.0f} h"
+    if hours >= 10:
+        return f"{hours:.1f} h"
+    h = int(hours)
+    m = int(round((hours - h) * 60))
+    if h == 0:
+        return f"{m} min" if m else "0 h"
+    return f"{h} h {m} m"
+
+
+class StatsScreen:
+    """Shows account-wide stats: games, messages, friends, time played."""
+
+    def __init__(
+        self,
+        rect: pygame.Rect,
+        on_back: Callable[[], None],
+        stats: Optional[PlayerStats] = None,
+    ):
+        self.rect = rect
+        self.on_back = on_back
+        self.stats = stats or PlayerStats()
+        pad = 24
+        self._btn_back = Button(pygame.Rect(rect.x + pad, rect.y + pad, 120, 40), "Back")
+
+    def set_stats(self, stats: PlayerStats) -> None:
+        self.stats = stats
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._btn_back.contains(event.pos):
+                self.on_back()
+
+    def update(self, dt: float) -> None:
+        pass
+
+    def draw(self, surface: pygame.Surface) -> None:
+        pygame.draw.rect(surface, COLORS["bg"], self.rect)
+        title = TITLE_FONT.render("Your stats", True, COLORS["accent"])
+        surface.blit(title, (self.rect.centerx - title.get_width() // 2, self.rect.y + 88))
+        sub = SMALL_FONT.render("Totals for your account (from the platform server)", True, COLORS["text_dim"])
+        surface.blit(sub, sub.get_rect(center=(self.rect.centerx, self.rect.y + 138)))
+
+        items = [
+            ("Games played", str(self.stats.games_played)),
+            ("Messages sent", str(self.stats.messages_sent)),
+            ("Friends", str(self.stats.friends)),
+            ("Hours spent playing", _format_hours(self.stats.hours_playing)),
+        ]
+        gap = 16
+        card_w = min(420, (self.rect.width - 48 - gap) // 2)
+        card_h = 100
+        grid_top = self.rect.y + 180
+        pair_w = 2 * card_w + gap
+        x0 = self.rect.centerx - pair_w // 2
+        for i, (label, value) in enumerate(items):
+            col = i % 2
+            row = i // 2
+            x = x0 + col * (card_w + gap)
+            y = grid_top + row * (card_h + gap)
+            rr = pygame.Rect(x, y, card_w, card_h)
+            pygame.draw.rect(surface, COLORS["panel"], rr, border_radius=12)
+            pygame.draw.rect(surface, COLORS["border"], rr, 1, border_radius=12)
+            lab = SMALL_FONT.render(label.upper(), True, COLORS["text_dim"])
+            surface.blit(lab, (rr.x + 16, rr.y + 14))
+            val_font = BODY_FONT if len(value) > 12 else TITLE_FONT
+            val = val_font.render(value, True, COLORS["text"])
+            surface.blit(val, (rr.x + 16, rr.y + 44))
+
+        mp = pygame.mouse.get_pos()
+        self._btn_back.draw(surface, self._btn_back.contains(mp))
 
 
 # --- Queue / waiting -------------------------------------------------------
@@ -466,6 +562,7 @@ class PlaySessionScreen:
 class AppScreen(Enum):
     LOGIN = auto()
     BROWSER = auto()
+    STATS = auto()
     QUEUE = auto()
     PLAY = auto()
 
@@ -480,6 +577,8 @@ __all__ = [
     "LoginScreen",
     "BrowserScreen",
     "GameInfo",
+    "PlayerStats",
+    "StatsScreen",
     "QueueScreen",
     "PlaySessionScreen",
     "ChatLine",
@@ -488,11 +587,11 @@ __all__ = [
 
 
 def _run_ui_demo() -> None:
-    """Open a window to preview screens. Keys 1–4 switch views; Esc quits."""
+    """Open a window to preview screens. Keys 1–5 switch views; Esc quits."""
     pygame.init()
     w, h = 960, 640
     screen = pygame.display.set_mode((w, h))
-    pygame.display.set_caption("Arcade UI preview — 1 Login 2 Browser 3 Queue 4 Play — Esc quit")
+    pygame.display.set_caption("Arcade UI preview — 1 Login 2 Browser 3 Stats 4 Queue 5 Play — Esc quit")
     clock = pygame.time.Clock()
     full = screen.get_rect()
 
@@ -502,13 +601,24 @@ def _run_ui_demo() -> None:
         on_register=lambda u, p: login.set_status(f"Would register: {u!r}", False),
     )
 
-    state: dict = {"queue_name": "Pick a game on screen 2"}
+    state: dict = {"queue_name": "Pick a game on screen 2", "idx": 0}
 
     def on_play(gid: str) -> None:
         name = next((g.name for g in browser.games if g.id == gid), gid)
         state["queue_name"] = name
 
-    browser = BrowserScreen(full, on_play=on_play, on_logout=lambda: login.set_status("Logout (demo)", False))
+    stats_screen = StatsScreen(
+        full,
+        on_back=lambda: state.__setitem__("idx", 1),
+        stats=PlayerStats(games_played=42, messages_sent=1280, friends=7, hours_playing=36.25),
+    )
+
+    browser = BrowserScreen(
+        full,
+        on_play=on_play,
+        on_logout=lambda: login.set_status("Logout (demo)", False),
+        on_stats=lambda: state.__setitem__("idx", 2),
+    )
 
     queue = QueueScreen(full, state["queue_name"], on_cancel=lambda: queue.set_detail("Cancelled (demo)"))
     play = PlaySessionScreen(
@@ -524,13 +634,14 @@ def _run_ui_demo() -> None:
     screens_order = (
         ("Login", login),
         ("Browser", browser),
+        ("Stats", stats_screen),
         ("Queue", queue),
         ("Play", play),
     )
-    idx = 0
     running = True
     while running:
         dt = clock.tick(60) / 1000.0
+        idx = state["idx"]
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -538,23 +649,26 @@ def _run_ui_demo() -> None:
                 if event.key == pygame.K_ESCAPE:
                     running = False
                 elif event.key == pygame.K_1:
-                    idx = 0
+                    state["idx"] = 0
                 elif event.key == pygame.K_2:
-                    idx = 1
+                    state["idx"] = 1
                 elif event.key == pygame.K_3:
-                    idx = 2
-                    queue.game_name = state["queue_name"]
+                    state["idx"] = 2
                 elif event.key == pygame.K_4:
-                    idx = 3
+                    state["idx"] = 3
+                    queue.game_name = state["queue_name"]
+                elif event.key == pygame.K_5:
+                    state["idx"] = 4
             else:
-                screens_order[idx][1].handle_event(event)
+                screens_order[state["idx"]][1].handle_event(event)
 
+        idx = state["idx"]
         active = screens_order[idx][1]
         active.update(dt)
         screen.fill(COLORS["bg"])
         active.draw(screen)
         hint = SMALL_FONT.render(
-            f"Screen: {screens_order[idx][0]}  |  1–4 switch  |  Esc quit",
+            f"Screen: {screens_order[idx][0]}  |  1–5 switch  |  Esc quit",
             True,
             COLORS["text_dim"],
         )
