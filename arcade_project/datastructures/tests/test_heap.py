@@ -1,4 +1,13 @@
-# code/datastructures/tests/heap_tests.py
+"""
+test_heap.py - test for Binary Heap Implementation 
+
+Run from the project root:
+    python datastructures/tests/test_heap.py
+
+Author: Mennah Khaled Dewidar
+Date: 4/17/2026
+Computation Final Project
+"""
 import sys
 sys.path.append('..')  # Add parent directory to path
 from heap import MinHeap, MaxHeap

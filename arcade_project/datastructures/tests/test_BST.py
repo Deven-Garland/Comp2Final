@@ -1,4 +1,13 @@
-# code/datastructures/tests/bst_tests.py
+"""
+test_bst.py - test for Binary Search Tree Implementation 
+
+Run from the project root:
+    python datastructures/tests/test_bst.py
+
+Author: Mennah Khaled Dewidar
+Date: 4/17/2026
+Computation Final Project
+"""
 import sys
 sys.path.append('..')  # Add parent directory to path
 from bst import BinarySearchTree

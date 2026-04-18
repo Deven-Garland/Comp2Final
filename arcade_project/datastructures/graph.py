@@ -7,7 +7,7 @@ class Edge:
         self.destination = destination
         self.weight = weight
 
-    def __eq__(self, other)
+    def __eq__(self, other):
         # Needed so ArrayList.remove() works correctly
         return (
             isinstance(other, Edge)

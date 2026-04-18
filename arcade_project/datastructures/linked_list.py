@@ -15,8 +15,7 @@ Date: [4/17/2026]
 Lab: Final Project - Hash Table
 """
 
-from .node import Node
-
+from .node import Node_LL
 
 class LinkedList:
     """
