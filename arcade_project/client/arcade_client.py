@@ -33,6 +33,19 @@ WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
 
+# Server settings
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 9000
+
+# Hardcoded game list (no server endpoint for this yet)
+GAME_LIST = [
+    GameInfo("deven",    "Deven's Game",    "Fast reflex mini-game"),
+    GameInfo("ellie",    "Ellie's Game",    "Puzzle challenge"),
+    GameInfo("kimberly", "Kimberly's Game", "Score attack"),
+    GameInfo("mennah",   "Mennah's Game",   "Strategy lite"),
+    GameInfo("vraj",     "Vraj's Game",     "Endless runner"),
+]
+
 
 class ArcadeClient:
     """
@@ -52,11 +65,18 @@ class ArcadeClient:
         self._username = ""
         self._current_game_id = ""
         self._session_id = ""
+        self._chat_shown = set()  # track messages already displayed
 
-        # Server connection (wraps TCP sockets to platform + game server)
-        self._conn = ServerConnection()
+        # Connect to platform server
+        self._conn = ServerConnection(SERVER_HOST, SERVER_PORT)
+        try:
+            self._conn.connect()
+            self._connected = True
+        except Exception as e:
+            print(f"[warn] Could not connect to server: {e}")
+            self._connected = False
 
-        # Build all screens up front — they're cheap to keep alive
+        # Build all screens
         full = self._screen.get_rect()
         self._login = LoginScreen(
             full,
@@ -68,6 +88,7 @@ class ArcadeClient:
             on_play=self._handle_play,
             on_logout=self._handle_logout,
             on_stats=self._handle_stats,
+            games=GAME_LIST,
         )
         self._stats = StatsScreen(
             full,
@@ -86,19 +107,21 @@ class ArcadeClient:
             on_leave=self._handle_leave,
         )
 
+        if not self._connected:
+            self._login.set_status("Could not reach server. Check your connection.", error=True)
+
     # --- Screen helpers ----------------------------------------------------
 
     def _go_to(self, screen: AppScreen) -> None:
         self._current = screen
 
     def _active_screen(self):
-        """Return whichever screen object is currently active."""
         return {
-            AppScreen.LOGIN: self._login,
+            AppScreen.LOGIN:   self._login,
             AppScreen.BROWSER: self._browser,
-            AppScreen.STATS: self._stats,
-            AppScreen.QUEUE: self._queue,
-            AppScreen.PLAY: self._play,
+            AppScreen.STATS:   self._stats,
+            AppScreen.QUEUE:   self._queue,
+            AppScreen.PLAY:    self._play,
         }[self._current]
 
     # --- Login callbacks ---------------------------------------------------
@@ -107,64 +130,78 @@ class ArcadeClient:
         if not username or not password:
             self._login.set_status("Enter a username and password.", error=True)
             return
-        ok, msg = self._conn.login(username, password)
-        if ok:
-            self._username = username
-            self._login.set_status(f"Welcome back, {username}!", error=False)
-            self._refresh_browser()
-            self._go_to(AppScreen.BROWSER)
-        else:
-            self._login.set_status(msg or "Login failed.", error=True)
+        try:
+            resp = self._conn.login(username, password)
+            if resp.get("status") == "ok":
+                self._username = username
+                self._login.set_status(f"Welcome back, {username}!", error=False)
+                self._go_to(AppScreen.BROWSER)
+            else:
+                self._login.set_status(resp.get("message", "Login failed."), error=True)
+        except Exception as e:
+            self._login.set_status(f"Server error: {e}", error=True)
 
     def _handle_register(self, username: str, password: str) -> None:
         if not username or not password:
             self._login.set_status("Enter a username and password.", error=True)
             return
-        ok, msg = self._conn.register(username, password)
-        if ok:
-            self._username = username
-            self._login.set_status(f"Account created! Welcome, {username}!", error=False)
-            self._refresh_browser()
-            self._go_to(AppScreen.BROWSER)
-        else:
-            self._login.set_status(msg or "Registration failed.", error=True)
+        try:
+            # Use username as email placeholder since screen only has username/password
+            email = f"{username}@arcade.local"
+            resp = self._conn.register(username, password, email)
+            if resp.get("status") == "ok":
+                self._username = username
+                # Auto-login after register
+                self._conn.login(username, password)
+                self._login.set_status(f"Account created! Welcome, {username}!", error=False)
+                self._go_to(AppScreen.BROWSER)
+            else:
+                self._login.set_status(resp.get("message", "Registration failed."), error=True)
+        except Exception as e:
+            self._login.set_status(f"Server error: {e}", error=True)
 
     # --- Browser callbacks -------------------------------------------------
 
-    def _refresh_browser(self) -> None:
-        """Pull game list from server and update browser."""
-        games = self._conn.get_game_list()
-        if games:
-            self._browser.set_games([GameInfo(g["id"], g["name"], g.get("description", "")) for g in games])
-
     def _handle_play(self, game_id: str) -> None:
         self._current_game_id = game_id
-        game_name = next((g.name for g in self._browser.games if g.id == game_id), game_id)
+        game_name = next((g.name for g in GAME_LIST if g.id == game_id), game_id)
         self._queue.game_name = game_name
         self._queue.set_detail("Talking to matchmaker...")
         self._go_to(AppScreen.QUEUE)
-        # Ask the server to queue us up
-        ok, msg = self._conn.join_queue(game_id)
-        if ok:
-            self._queue.set_detail(msg or "In queue — waiting for opponent...")
-        else:
-            self._queue.set_detail(f"Error: {msg}")
+        try:
+            resp = self._conn.join_queue()
+            if resp.get("status") == "ok":
+                self._queue.set_detail("In queue — waiting for opponent...")
+            else:
+                self._queue.set_detail(f"Error: {resp.get('message', 'Queue failed')}")
+        except Exception as e:
+            self._queue.set_detail(f"Server error: {e}")
 
     def _handle_logout(self) -> None:
-        self._conn.logout()
+        self._conn.disconnect()
+        try:
+            self._conn.connect()
+        except Exception:
+            pass
         self._username = ""
         self._login.set_status("Logged out.", error=False)
         self._go_to(AppScreen.LOGIN)
 
     def _handle_stats(self) -> None:
-        raw = self._conn.get_stats(self._username)
-        if raw:
-            self._stats.set_stats(PlayerStats(
-                games_played=raw.get("games_played", 0),
-                messages_sent=raw.get("messages_sent", 0),
-                friends=raw.get("friends", 0),
-                hours_playing=raw.get("hours_playing", 0.0),
-            ))
+        try:
+            resp = self._conn.get_leaderboard(10)
+            if resp.get("status") == "ok":
+                data = resp.get("data", {})
+                entries = data.get("leaderboard", [])
+                my_entry = next((e for e in entries if e.get("username") == self._username), {})
+                self._stats.set_stats(PlayerStats(
+                    games_played=my_entry.get("games_played", 0),
+                    messages_sent=0,
+                    friends=0,
+                    hours_playing=my_entry.get("hours_playing", 0.0),
+                ))
+        except Exception:
+            pass  # show whatever stats are already on screen
         self._go_to(AppScreen.STATS)
 
     def _handle_back_to_browser(self) -> None:
@@ -173,31 +210,31 @@ class ArcadeClient:
     # --- Queue callbacks ---------------------------------------------------
 
     def _handle_cancel_queue(self) -> None:
-        self._conn.leave_queue()
         self._go_to(AppScreen.BROWSER)
 
     # --- Play session callbacks --------------------------------------------
 
     def _handle_send_chat(self, text: str) -> None:
-        self._conn.send_chat(self._session_id, self._username, text)
-        # Optimistically show the message right away
+        try:
+            self._conn.send_chat(text)
+        except Exception as e:
+            print(f"[chat] send error: {e}")
         self._play.add_chat(self._username, text)
 
     def _handle_leave(self) -> None:
-        self._conn.leave_session(self._session_id)
         self._play.clear_chat()
+        self._chat_shown.clear()
+        self._session_id = ""
         self._go_to(AppScreen.BROWSER)
 
-    # --- Match found (called when server notifies us) ----------------------
+    # --- Match found -------------------------------------------------------
 
     def _on_match_found(self, session_id: str) -> None:
-        """Transition from queue → play when the server finds a match."""
         self._session_id = session_id
         game_name = next(
-            (g.name for g in self._browser.games if g.id == self._current_game_id),
+            (g.name for g in GAME_LIST if g.id == self._current_game_id),
             self._current_game_id,
         )
-        # Rebuild play screen with fresh session info
         full = self._screen.get_rect()
         self._play = PlaySessionScreen(
             full,
@@ -207,60 +244,69 @@ class ArcadeClient:
             on_leave=self._handle_leave,
         )
         self._play.add_chat("server", "Match found! Game starting...")
+        self._chat_shown.clear()
         self._go_to(AppScreen.PLAY)
 
-    # --- Server polling (chat + match notifications) -----------------------
+    # --- Server polling ----------------------------------------------------
 
     def _poll_server(self) -> None:
-        """Check for incoming messages or match notifications."""
         if self._current == AppScreen.QUEUE:
-            match = self._conn.poll_match()
-            if match:
-                self._on_match_found(match["session_id"])
+            try:
+                resp = self._conn._request("queue_status", {})
+                if resp.get("status") == "ok":
+                    session_id = resp.get("data", {}).get("session_id")
+                    if session_id:
+                        self._on_match_found(str(session_id))
+            except Exception as e:
+                print(f"[poll queue] {e}")
 
-        elif self._current == AppScreen.PLAY:
-            messages = self._conn.poll_chat(self._session_id)
-            for msg in messages:
-                # Skip messages we sent ourselves (already shown optimistically)
-                if msg.get("sender") != self._username:
-                    self._play.add_chat(msg["sender"], msg["text"], msg.get("timestamp", 0.0))
+        elif self._current == AppScreen.PLAY and self._session_id:
+            try:
+                resp = self._conn._request("get_chat", {"game_id": self._session_id})
+                if resp.get("status") == "ok":
+                    messages = resp.get("data", {}).get("messages", [])
+                    for msg in messages:
+                        key = (msg.get("sender"), msg.get("message"), msg.get("time"))
+                        if key not in self._chat_shown and msg.get("sender") != self._username:
+                            self._play.add_chat(
+                                msg["sender"],
+                                msg["message"],
+                                msg.get("time", 0.0),
+                            )
+                            self._chat_shown.add(key)
+            except Exception as e:
+                print(f"[poll chat] {e}")
 
     # --- Main loop ---------------------------------------------------------
 
     def run(self) -> None:
         self._running = True
         poll_timer = 0.0
-        POLL_INTERVAL = 0.5  # seconds between server polls
+        POLL_INTERVAL = 0.5
 
         while self._running:
             dt = self._clock.tick(FPS) / 1000.0
             active = self._active_screen()
 
-            # Events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._running = False
                 else:
                     active.handle_event(event)
 
-            # Update
             active.update(dt)
 
-            # Poll server periodically
             poll_timer += dt
-            if poll_timer >= POLL_INTERVAL:
+            if poll_timer >= POLL_INTERVAL and self._connected:
                 poll_timer = 0.0
                 try:
                     self._poll_server()
                 except Exception as e:
-                    # Don't crash the whole client on a network hiccup
                     print(f"[poll] {e}")
 
-            # Draw
             self._screen.fill(COLORS["bg"])
             active.draw(self._screen)
 
-            # Debug overlay — username + screen name in corner
             if self._username:
                 info = SMALL_FONT.render(
                     f"{self._username}  |  {self._current.name}",
@@ -271,6 +317,6 @@ class ArcadeClient:
 
             pygame.display.flip()
 
-        self._conn.close()
+        self._conn.disconnect()
         pygame.quit()
         sys.exit(0)
