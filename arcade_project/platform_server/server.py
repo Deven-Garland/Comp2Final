@@ -55,7 +55,7 @@ from platform_server.matchmaking import Matchmaking
 
 
 DEFAULT_HOST = os.getenv("PLATFORM_SERVER_HOST", "127.0.0.1")
-DEFAULT_PORT = int(os.getenv("PLATFORM_SERVER_PORT", ""))
+DEFAULT_PORT = int(os.getenv("PLATFORM_SERVER_PORT", "50072"))
 DEFAULT_PLAYERS_PER_MATCH = int(os.getenv("PLATFORM_PLAYERS_PER_MATCH", "2"))
 DEFAULT_GAME_HOST = os.getenv("PLATFORM_GAME_HOST", "127.0.0.1")
 GAME_SERVER_ENV = os.getenv("PLATFORM_GAME_SERVERS", "")
