@@ -1,4 +1,3 @@
-# Accounts (you implement).
 """
 accounts.py - storing everyone's accounts
 
