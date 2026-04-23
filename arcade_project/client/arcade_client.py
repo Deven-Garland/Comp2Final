@@ -268,9 +268,9 @@ class ArcadeClient:
     def _poll_server(self) -> None:
         if self._current == AppScreen.QUEUE:
             try:
-                resp = self._conn._request("queue_status", {})
+                resp = self._conn._request("try_create_match", {})
                 if resp.get("status") == "ok":
-                    session_id = resp.get("data", {}).get("session_id")
+                    session_id = resp.get("data", {}).get("game_id")
                     if session_id:
                         self._on_match_found(str(session_id))
             except Exception as e:
