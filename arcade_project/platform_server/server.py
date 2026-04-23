@@ -56,7 +56,7 @@ class PlatformServer:
         return True
 
     def try_create_match(self):
-        players = self.matchmaking.match_players(2)
+        players = self.matchmaking.match_players(1)
 
         if len(players) == 0:
             return None

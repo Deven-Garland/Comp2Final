@@ -10,6 +10,7 @@ Lab: Final Project
 """
 
 import sys
+import threading
 import pygame
 
 from client.screens import (
@@ -65,7 +66,8 @@ class ArcadeClient:
         self._username = ""
         self._current_game_id = ""
         self._session_id = ""
-        self._chat_shown = set()  # track messages already displayed
+        self._chat_shown = set()
+        self._ellie_game = None
 
         # Connect to platform server
         self._conn = ServerConnection(SERVER_HOST, SERVER_PORT)
@@ -146,12 +148,10 @@ class ArcadeClient:
             self._login.set_status("Enter a username and password.", error=True)
             return
         try:
-            # Use username as email placeholder since screen only has username/password
             email = f"{username}@arcade.local"
             resp = self._conn.register(username, password, email)
             if resp.get("status") == "ok":
                 self._username = username
-                # Auto-login after register
                 self._conn.login(username, password)
                 self._login.set_status(f"Account created! Welcome, {username}!", error=False)
                 self._go_to(AppScreen.BROWSER)
@@ -184,6 +184,7 @@ class ArcadeClient:
         except Exception:
             pass
         self._username = ""
+        self._ellie_game = None
         self._login.set_status("Logged out.", error=False)
         self._go_to(AppScreen.LOGIN)
 
@@ -201,7 +202,7 @@ class ArcadeClient:
                     hours_playing=my_entry.get("hours_playing", 0.0),
                 ))
         except Exception:
-            pass  # show whatever stats are already on screen
+            pass
         self._go_to(AppScreen.STATS)
 
     def _handle_back_to_browser(self) -> None:
@@ -210,6 +211,7 @@ class ArcadeClient:
     # --- Queue callbacks ---------------------------------------------------
 
     def _handle_cancel_queue(self) -> None:
+        self._ellie_game = None
         self._go_to(AppScreen.BROWSER)
 
     # --- Play session callbacks --------------------------------------------
@@ -225,6 +227,7 @@ class ArcadeClient:
         self._play.clear_chat()
         self._chat_shown.clear()
         self._session_id = ""
+        self._ellie_game = None
         self._go_to(AppScreen.BROWSER)
 
     # --- Match found -------------------------------------------------------
@@ -245,6 +248,19 @@ class ArcadeClient:
         )
         self._play.add_chat("server", "Match found! Game starting...")
         self._chat_shown.clear()
+
+        # Launch Ellie's game inline in the left panel
+        if self._current_game_id == "ellie":
+            try:
+                from arcade_project.games.ellie_game.game import EllieGame
+                game_surface = self._play.game_subsurface(self._screen)
+                self._ellie_game = EllieGame(game_surface, self._username)
+            except Exception as e:
+                print(f"[ellie_game] Failed to load: {e}")
+                self._ellie_game = None
+        else:
+            self._ellie_game = None
+
         self._go_to(AppScreen.PLAY)
 
     # --- Server polling ----------------------------------------------------
@@ -293,8 +309,18 @@ class ArcadeClient:
                     self._running = False
                 else:
                     active.handle_event(event)
+                    # Pass events to ellie game if running
+                    if self._ellie_game and self._current == AppScreen.PLAY:
+                        self._ellie_game.handle_event(event)
 
             active.update(dt)
+
+            # Update ellie game if running
+            if self._ellie_game and self._current == AppScreen.PLAY:
+                try:
+                    self._ellie_game.update(dt)
+                except Exception as e:
+                    print(f"[ellie_game] update error: {e}")
 
             poll_timer += dt
             if poll_timer >= POLL_INTERVAL and self._connected:
@@ -306,6 +332,13 @@ class ArcadeClient:
 
             self._screen.fill(COLORS["bg"])
             active.draw(self._screen)
+
+            # Draw ellie game into left panel
+            if self._ellie_game and self._current == AppScreen.PLAY:
+                try:
+                    self._ellie_game.draw()
+                except Exception as e:
+                    print(f"[ellie_game] draw error: {e}")
 
             if self._username:
                 info = SMALL_FONT.render(
