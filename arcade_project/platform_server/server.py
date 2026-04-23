@@ -19,11 +19,22 @@ Lab: Final Project - Server
 server.py - Runtime entrypoint for the arcade platform server.
 """
 
+"""
+server.py - Platform server runtime
+"""
+
 import argparse
 import json
 import os
 import socketserver
+import sys
 import threading
+from pathlib import Path
+
+
+if __package__ in (None, ""):
+    project_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(project_root))
 
 from platform_server.accounts import Accounts
 from platform_server.catalog import Catalog
@@ -37,8 +48,9 @@ from platform_server.matchmaking import Matchmaking
 DEFAULT_HOST = os.getenv("PLATFORM_SERVER_HOST", "127.0.0.1")
 DEFAULT_PORT = int(os.getenv("PLATFORM_SERVER_PORT", "5000"))
 DEFAULT_PLAYERS_PER_MATCH = int(os.getenv("PLATFORM_PLAYERS_PER_MATCH", "2"))
+
 REQUEST_TYPE_KEYS = ("type", "action")
-RESERVED_REQUEST_KEYS = (*REQUEST_TYPE_KEYS, "request_id")
+RESERVED_REQUEST_KEYS = (*REQUEST_TYPE_KEYS, "request_id", "params")
 
 
 class PlatformServer:
@@ -50,11 +62,10 @@ class PlatformServer:
         self.catalog = Catalog()
         self.chat = Chat()
         self.players_per_match = players_per_match
+        self.next_game_id = 1
 
         self.data_ingest = DataIngest(self.accounts, self.leaderboard, self.catalog)
         self.data_ingest.load_data()
-
-        self.next_game_id = 1
 
     def register(self, username, password):
         return self.accounts.register(username, password)
@@ -80,7 +91,10 @@ class PlatformServer:
 
         self.chat.start_session(game_id)
 
-        return game_id, players
+        return {
+            "game_id": game_id,
+            "players": players,
+        }
 
     def send_message(self, game_id, username, text):
         self.chat.send_message(game_id, username, text)
@@ -103,8 +117,6 @@ class PlatformServer:
 
 
 class RequestDispatcher:
-    """Dispatches incoming JSON requests to PlatformServer methods."""
-
     allowed_methods = (
         "register",
         "login",
@@ -117,10 +129,9 @@ class RequestDispatcher:
         "player_history",
     )
 
-    def __init__(self, platform, allowed_methods=None):
+    def __init__(self, platform):
         self.platform = platform
         self.lock = threading.RLock()
-        self.allowed_methods = set(allowed_methods or self.allowed_methods)
 
     def dispatch(self, request):
         if not isinstance(request, dict):
@@ -131,6 +142,21 @@ class RequestDispatcher:
         if request_type not in self.allowed_methods:
             raise ValueError(f"unknown request type: {request_type}")
 
+        params = self.get_params(request)
+        method = getattr(self.platform, request_type)
+
+        with self.lock:
+            return method(**params)
+
+    def get_request_type(self, request):
+        for key in REQUEST_TYPE_KEYS:
+            request_type = request.get(key)
+            if request_type:
+                return request_type
+
+        return None
+
+    def get_params(self, request):
         params = request.get("params")
 
         if params is None:
@@ -143,28 +169,19 @@ class RequestDispatcher:
         if not isinstance(params, dict):
             raise ValueError("params must be a JSON object")
 
-        method = getattr(self.platform, request_type)
-
-        with self.lock:
-            return method(**params)
-
-    def get_request_type(self, request):
-        for key in REQUEST_TYPE_KEYS:
-            if request.get(key):
-                return request[key]
-
-        return None
+        return params
 
 
-class ArcadeTCPServer(socketserver.ThreadingTCPServer):
+class ThreadedPlatformTCPServer(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
+    daemon_threads = True
 
-    def __init__(self, server_address, request_handler_class, dispatcher):
-        super().__init__(server_address, request_handler_class)
+    def __init__(self, address, handler_class, dispatcher):
+        super().__init__(address, handler_class)
         self.dispatcher = dispatcher
 
 
-class ArcadeRequestHandler(socketserver.StreamRequestHandler):
+class PlatformRequestHandler(socketserver.StreamRequestHandler):
     def handle(self):
         for raw_line in self.rfile:
             raw_line = raw_line.strip()
@@ -172,10 +189,11 @@ class ArcadeRequestHandler(socketserver.StreamRequestHandler):
             if not raw_line:
                 continue
 
-            response = self.handle_line(raw_line)
-            self.wfile.write(json.dumps(response).encode("utf-8") + b"\n")
+            response = self.handle_request_line(raw_line)
+            response_text = json.dumps(response, default=str)
+            self.wfile.write(response_text.encode("utf-8") + b"\n")
 
-    def handle_line(self, raw_line):
+    def handle_request_line(self, raw_line):
         request_id = None
 
         try:
@@ -221,23 +239,19 @@ def run_server(
 ):
     platform = PlatformServer(players_per_match=players_per_match)
     dispatcher = RequestDispatcher(platform)
+    address = (host, port)
 
-    with ArcadeTCPServer((host, port), ArcadeRequestHandler, dispatcher) as server:
+    with ThreadedPlatformTCPServer(address, PlatformRequestHandler, dispatcher) as server:
         print(f"Platform server listening on {host}:{port}")
         server.serve_forever()
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run the arcade platform server.")
+    parser = argparse.ArgumentParser(description="Run the platform server.")
 
-    parser.add_argument("--host", default=DEFAULT_HOST, help="Host/IP to bind.")
-    parser.add_argument("--port", default=DEFAULT_PORT, type=int, help="Port to bind.")
-    parser.add_argument(
-        "--players-per-match",
-        default=DEFAULT_PLAYERS_PER_MATCH,
-        type=int,
-        help="Number of queued players needed to create a match.",
-    )
+    parser.add_argument("--host", default=DEFAULT_HOST)
+    parser.add_argument("--port", default=DEFAULT_PORT, type=int)
+    parser.add_argument("--players-per-match", default=DEFAULT_PLAYERS_PER_MATCH, type=int)
 
     return parser.parse_args()
 
