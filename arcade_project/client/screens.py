@@ -87,6 +87,9 @@ class TextInput:
         self.focused = False
         self.password = password
         self._cursor_blink = 0.0
+        # Optional bounding rect — clicks outside this won't steal focus.
+        # Set by PlaySessionScreen so game-area clicks don't unfocus the input.
+        self.focus_region: Optional[pygame.Rect] = None
 
     def draw(self, surface: pygame.Surface) -> None:
         pygame.draw.rect(surface, COLORS["input_bg"], self.rect, border_radius=6)
@@ -101,8 +104,18 @@ class TextInput:
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self.focused = self.rect.collidepoint(event.pos)
-            return self.focused
+            clicked_input = self.rect.collidepoint(event.pos)
+            # FIX: only lose focus if the click is within the allowed focus_region
+            # (the chat panel). Clicks in the game area should not unfocus the input.
+            in_region = (
+                self.focus_region is None or
+                self.focus_region.collidepoint(event.pos)
+            )
+            if clicked_input:
+                self.focused = True
+            elif in_region:
+                self.focused = False
+            return clicked_input
         if not self.focused:
             return False
         if event.type == pygame.KEYDOWN:
@@ -310,7 +323,6 @@ class BrowserScreen:
             desc = SMALL_FONT.render(g.description[:80], True, COLORS["text_dim"])
             surface.blit(desc, (rr.x + 12, rr.y + 30))
 
-            # Favorite button — filled yellow circle if favorited, outline if not
             star_rect = self._star_rect_for_row(rr)
             is_fav = self.favorite_game_id == g.id
             cx = star_rect.centerx
@@ -508,6 +520,10 @@ class PlaySessionScreen:
             ),
             "Type a message…",
         )
+        # FIX: restrict focus loss to clicks within the chat panel only.
+        # Clicking in the game area will not unfocus the chat input.
+        self._input.focus_region = self._chat_rect
+
         self._btn_send = Button(
             pygame.Rect(self._chat_rect.right - pad - 80, self._chat_rect.bottom - 52, 76, 36),
             "Send",
