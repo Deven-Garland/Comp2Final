@@ -134,12 +134,12 @@ class ArcadeClient:
             return
         try:
             resp = self._conn.login(username, password)
-            if resp.get("status") == "ok":
+            if resp.get("status") == "ok" and resp.get("data") is True:
                 self._username = username
                 self._login.set_status(f"Welcome back, {username}!", error=False)
                 self._go_to(AppScreen.BROWSER)
             else:
-                self._login.set_status(resp.get("message", "Login failed."), error=True)
+                self._login.set_status("Invalid username or password.", error=True)
         except Exception as e:
             self._login.set_status(f"Server error: {e}", error=True)
 
@@ -150,13 +150,13 @@ class ArcadeClient:
         try:
             email = f"{username}@arcade.local"
             resp = self._conn.register(username, password, email)
-            if resp.get("status") == "ok":
+            if resp.get("status") == "ok" and resp.get("data") is True:
                 self._username = username
                 self._conn.login(username, password)
                 self._login.set_status(f"Account created! Welcome, {username}!", error=False)
                 self._go_to(AppScreen.BROWSER)
             else:
-                self._login.set_status(resp.get("message", "Registration failed."), error=True)
+                self._login.set_status("Username already taken.", error=True)
         except Exception as e:
             self._login.set_status(f"Server error: {e}", error=True)
 
@@ -193,7 +193,7 @@ class ArcadeClient:
             resp = self._conn.get_leaderboard(10)
             if resp.get("status") == "ok":
                 data = resp.get("data", {})
-                entries = data.get("leaderboard", [])
+                entries = data.get("leaderboard", []) if isinstance(data, dict) else []
                 my_entry = next((e for e in entries if e.get("username") == self._username), {})
                 self._stats.set_stats(PlayerStats(
                     games_played=my_entry.get("games_played", 0),
@@ -270,7 +270,8 @@ class ArcadeClient:
             try:
                 resp = self._conn._request("try_create_match", {})
                 if resp.get("status") == "ok":
-                    session_id = resp.get("data", {}).get("game_id")
+                    data = resp.get("data") or {}
+                    session_id = data.get("game_id") if isinstance(data, dict) else None
                     if session_id:
                         self._on_match_found(str(session_id))
             except Exception as e:
@@ -280,7 +281,8 @@ class ArcadeClient:
             try:
                 resp = self._conn._request("get_chat", {"game_id": self._session_id})
                 if resp.get("status") == "ok":
-                    messages = resp.get("data", {}).get("messages", [])
+                    data = resp.get("data") or {}
+                    messages = data.get("messages", []) if isinstance(data, dict) else []
                     for msg in messages:
                         key = (msg.get("sender"), msg.get("message"), msg.get("time"))
                         if key not in self._chat_shown and msg.get("sender") != self._username:
@@ -309,13 +311,11 @@ class ArcadeClient:
                     self._running = False
                 else:
                     active.handle_event(event)
-                    # Pass events to ellie game if running
                     if self._ellie_game and self._current == AppScreen.PLAY:
                         self._ellie_game.handle_event(event)
 
             active.update(dt)
 
-            # Update ellie game if running
             if self._ellie_game and self._current == AppScreen.PLAY:
                 try:
                     self._ellie_game.update(dt)
@@ -333,7 +333,6 @@ class ArcadeClient:
             self._screen.fill(COLORS["bg"])
             active.draw(self._screen)
 
-            # Draw ellie game into left panel
             if self._ellie_game and self._current == AppScreen.PLAY:
                 try:
                     self._ellie_game.draw()

@@ -2,7 +2,7 @@
 game.py - Ellie's Game integrated into the MOSFET Arcade
 
 Runs the game Level directly inside the arcade window's left panel,
-next to the chat. No subprocess, no separate window.
+next to the chat. Connects to the C++ game server for multiplayer.
 
 Author: Ellie Lutz
 Date: Spring 2026
@@ -18,6 +18,10 @@ if GAME_DIR not in sys.path:
     sys.path.insert(0, GAME_DIR)
 
 import pygame
+
+# C++ game server settings
+GAME_SERVER_HOST = "127.0.0.1"
+GAME_SERVER_PORT = 50072
 
 # Modules belonging to ellie_game that need fresh imports
 _ELLIE_MODULES = [
@@ -72,14 +76,11 @@ class EllieGame:
             self.small_font = pygame.font.Font(None, 18)
 
     def _start_level(self):
-        """Create the Level, patching display_surface to use our subsurface."""
+        """Create the Level, connecting to the real C++ game server."""
         old_path = sys.path.copy()
         sys.path = [GAME_DIR] + [p for p in sys.path if 'arcade_project' not in p]
-
-        # Clear cached modules so ellie_game's datastructures loads fresh
         _clear_ellie_modules()
 
-        # Patch pygame.display.get_surface so Level draws to our panel
         _orig = pygame.display.get_surface
         outer_self = self
 
@@ -94,8 +95,8 @@ class EllieGame:
             self.level = Level(
                 self.username,
                 char_class,
-                server_host="127.0.0.1",
-                server_port=1,  # nothing listening, fails fast
+                server_host=GAME_SERVER_HOST,
+                server_port=GAME_SERVER_PORT,
                 serializer="text",
             )
             self.level.display_surface = self.surface
@@ -154,6 +155,7 @@ class EllieGame:
                 self.level.enemies.update()
                 self.level.player_attack_logic()
             self.level.record_player_state()
+            self.level.update_network()
 
     def draw(self) -> None:
         if self.state == "select":
