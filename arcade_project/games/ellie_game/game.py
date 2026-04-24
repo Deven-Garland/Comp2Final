@@ -20,9 +20,9 @@ if GAME_DIR not in sys.path:
 
 import pygame
 
-# C++ game server settings
-GAME_SERVER_HOST = "127.0.0.1"
-GAME_SERVER_PORT = 50072
+# C++ game server settings (override for remote ece: ARCADE_GAME_HOST / ARCADE_GAME_PORT)
+GAME_SERVER_HOST = os.environ.get("ARCADE_GAME_HOST", "127.0.0.1")
+GAME_SERVER_PORT = int(os.environ.get("ARCADE_GAME_PORT", "50072"))
 
 # Modules belonging to ellie_game that need fresh imports
 _ELLIE_MODULES = [

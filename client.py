@@ -3,15 +3,18 @@ client.py - Arcade client entry point
 
 Run:  python client.py
 
-This starts, by default:
+Full stack (default on one machine):
   - Python platform server (background thread) on SERVER_HOST:SERVER_PORT
-  - All five C++ team game servers (subprocesses), if server_text is built under
-    arcade_project/cpp_server/
+  - Optional C++ game servers when AUTO_START_CPP=1 and server_text exists
 
-Disable auto C++ with:  set AUTO_START_CPP=0   (Windows)  or  export AUTO_START_CPP=0
+Extra players (same ece or laptops) — connect to an already-running platform:
+  export ARCADE_CLIENT_ONLY=1
+  export ARCADE_PLATFORM_HOST=ece-hostname.cs.school.edu   # or 127.0.0.1 if SSH on ece
+  export ARCADE_PLATFORM_PORT=9000
+  python client.py
 
-On eceserver / production, run platform + C++ separately; laptops only run the client
-with SERVER_HOST pointing at the host.
+Do NOT run two "full" client.py on the same host: port 9000 can only bind once.
+The host that runs the platform should also run C++ games (or set AUTO_START_CPP=1 there).
 
 Authors: Team MOSFET
 Date: Spring 2026
@@ -28,7 +31,6 @@ import threading
 import time
 from typing import List
 
-# Make sure imports work
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "arcade_project"))
 
@@ -38,8 +40,16 @@ from arcade_project.client.arcade_client import ArcadeClient
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 9000
 
-# Populated if we auto-start C++ game servers (for cleanup)
 _cpp_children: List[subprocess.Popen] = []
+
+
+def _client_only() -> bool:
+    return os.environ.get("ARCADE_CLIENT_ONLY", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 
 def _cpp_server_dir() -> str:
@@ -56,22 +66,22 @@ def _find_game_server_binary():
 
 
 def _auto_start_cpp_enabled() -> bool:
-    v = os.environ.get("AUTO_START_CPP", "1").strip().lower()
-    return v not in ("0", "false", "no", "off")
+    if _client_only():
+        return False
+    v = os.environ.get("AUTO_START_CPP", "0").strip().lower()
+    return v in ("1", "true", "yes", "on")
 
 
 def start_cpp_team_servers() -> None:
-    """Start one C++ process per team game (--game …) if the binary exists."""
     global _cpp_children
     if not _auto_start_cpp_enabled():
-        print("[client] AUTO_START_CPP disabled; start C++ servers manually if needed.")
         return
 
     binary = _find_game_server_binary()
     if not binary:
         print(
-            "[client] No server_text / server_text.exe in arcade_project/cpp_server/. "
-            "Build with make (Linux/WSL) or start_team_servers.sh on eceserver."
+            "[client] AUTO_START_CPP=1 but no server_text found. "
+            "Build: cd arcade_project/cpp_server && make SERIALIZER=TEXT"
         )
         return
 
@@ -96,12 +106,12 @@ def start_cpp_team_servers() -> None:
         except OSError as e:
             if getattr(e, "errno", None) == 8:
                 print(
-                    f"[client] Could not start C++ server for {game}: Exec format error — "
-                    f"'{binary}' is not a Linux binary (often committed from Windows). "
-                    "On ece run: cd arcade_project/cpp_server && make clean && make"
+                    "[client] C++ binary wrong OS (exec format error). "
+                    "Build on this machine or use AUTO_START_CPP=0.\n"
+                    f"  Binary: {binary}"
                 )
-            else:
-                print(f"[client] Could not start C++ server for {game}: {e}")
+                break
+            print(f"[client] Could not start C++ server for {game}: {e}")
 
     if _cpp_children:
         print(f"[client] Started {len(_cpp_children)} C++ game server(s).")
@@ -125,7 +135,6 @@ def stop_cpp_team_servers() -> None:
 
 
 def start_server() -> None:
-    """Start the platform server in a background thread."""
     try:
         run_server(host=SERVER_HOST, port=SERVER_PORT, players_per_match=1)
     except Exception as e:
@@ -133,21 +142,29 @@ def start_server() -> None:
 
 
 def main() -> None:
-    # So platform auto-registers team games for the same host laptops use locally
+    if _client_only():
+        gh = os.environ.get("ARCADE_PLATFORM_HOST", "127.0.0.1")
+        os.environ.setdefault("PLATFORM_GAME_HOST", gh)
+        print(
+            "[client] ARCADE_CLIENT_ONLY=1 — UI only; "
+            f"connecting to platform at {os.environ.get('ARCADE_PLATFORM_HOST', SERVER_HOST)}:"
+            f"{os.environ.get('ARCADE_PLATFORM_PORT', str(SERVER_PORT))}"
+        )
+        ArcadeClient().run()
+        return
+
     os.environ.setdefault("PLATFORM_GAME_HOST", SERVER_HOST)
 
-    t = threading.Thread(target=start_server, daemon=True)
-    t.start()
+    threading.Thread(target=start_server, daemon=True).start()
     time.sleep(0.35)
 
     start_cpp_team_servers()
-    time.sleep(0.35)
-
-    atexit.register(stop_cpp_team_servers)
+    if _cpp_children:
+        time.sleep(0.35)
+        atexit.register(stop_cpp_team_servers)
 
     try:
-        client = ArcadeClient()
-        client.run()
+        ArcadeClient().run()
     finally:
         stop_cpp_team_servers()
 
