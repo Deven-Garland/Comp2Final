@@ -319,6 +319,9 @@ class ArcadeClient:
             if self._ellie_game and self._current == AppScreen.PLAY:
                 try:
                     self._ellie_game.update(dt)
+                    # If player clicked "Back to Games" on the stats screen
+                    if self._ellie_game.state == "done":
+                        self._handle_leave()
                 except Exception as e:
                     print(f"[ellie_game] update error: {e}")
 
