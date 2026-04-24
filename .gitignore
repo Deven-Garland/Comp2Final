@@ -1,0 +1,17 @@
+# C++ game server — build on each OS (do not commit Linux-incompatible binaries)
+arcade_project/cpp_server/server_text
+arcade_project/cpp_server/server_text.exe
+arcade_project/cpp_server/server_json
+arcade_project/cpp_server/server_json.exe
+arcade_project/cpp_server/server_binary
+arcade_project/cpp_server/server_binary.exe
+arcade_project/cpp_server/obj_text/
+arcade_project/cpp_server/obj_json/
+arcade_project/cpp_server/obj_binary/
+arcade_project/cpp_server/logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
