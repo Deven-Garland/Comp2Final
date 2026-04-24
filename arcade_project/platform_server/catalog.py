@@ -1,6 +1,6 @@
 # Catalog (you implement).
 """
-chat.py - Per-game-session chat system
+catalog.py - Seeing the games as a catalog
 
 Handles chat messages for each game session on the platform. Each active
 game session has its own chat history stored in a circular buffer, so
