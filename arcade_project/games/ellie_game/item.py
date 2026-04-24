@@ -8,7 +8,13 @@ Date: 02/09/2026
 Lab: Lab 3 - Inventory System
 """
 
+import os
 import pygame
+
+# FIX: build absolute path to items folder based on this file's location
+# so images load correctly regardless of launch directory
+GAME_DIR = os.path.dirname(os.path.abspath(__file__))
+ITEMS_DIR = os.path.join(GAME_DIR, "graphics", "items", "items")
 
 
 class Item:
@@ -130,17 +136,20 @@ class QuestItem(Item):
         return False
 
 
+def _p(filename):
+    """Helper: absolute path to an item image."""
+    return os.path.join(ITEMS_DIR, filename)
+
+
 def create_example_items():
-    """Create example items using your sprites in graphics/items/."""
+    """Create example items using sprites in graphics/items/items/."""
     items = []
 
-    base = "../../graphics/items/"
-
-    # Weapons (your sprites)
+    # Weapons
     items.append(Weapon(
         name="Blade",
         description="A sharp blade. Simple and reliable.",
-        image_path=base + "blade.png",
+        image_path=_p("blade.png"),
         attack_bonus=12,
         value=120
     ))
@@ -148,7 +157,7 @@ def create_example_items():
     items.append(Weapon(
         name="Dagger",
         description="Fast and light. Great for quick strikes.",
-        image_path=base + "dagger.png",
+        image_path=_p("dagger.png"),
         attack_bonus=8,
         value=75
     ))
@@ -156,7 +165,7 @@ def create_example_items():
     items.append(Weapon(
         name="Hammer",
         description="Heavy hits. Slow, but strong.",
-        image_path=base + "hammer.png",
+        image_path=_p("hammer.png"),
         attack_bonus=15,
         value=150
     ))
@@ -164,16 +173,16 @@ def create_example_items():
     items.append(Weapon(
         name="Bow and Arrow",
         description="A ranged weapon for careful shots.",
-        image_path=base + "bowandarrow.png",
+        image_path=_p("bowandarrow.png"),
         attack_bonus=10,
         value=110
     ))
 
-    # Consumables (food/drink sprites you have)
+    # Consumables
     items.append(Consumable(
         name="Apple",
         description="A crisp snack. Restores a little health.",
-        image_path=base + "apple.png",
+        image_path=_p("apple.png"),
         effect_type="heal",
         effect_amount=10,
         value=5,
@@ -183,7 +192,7 @@ def create_example_items():
     items.append(Consumable(
         name="Cookie",
         description="Sugary and comforting. Restores a little health.",
-        image_path=base + "cookie.png",
+        image_path=_p("cookie.png"),
         effect_type="heal",
         effect_amount=6,
         value=4,
@@ -193,7 +202,7 @@ def create_example_items():
     items.append(Consumable(
         name="Muffin",
         description="Filling and warm. Restores more health.",
-        image_path=base + "muffin.png",
+        image_path=_p("muffin.png"),
         effect_type="heal",
         effect_amount=18,
         value=8,
@@ -203,18 +212,18 @@ def create_example_items():
     items.append(Consumable(
         name="Tea",
         description="Calming tea. Restores mana if your character has it.",
-        image_path=base + "tea.png",
+        image_path=_p("tea.png"),
         effect_type="mana",
         effect_amount=12,
         value=10,
         max_stack=10
     ))
 
-    # Gems (use as quest items / valuables)
+    # Gems
     items.append(QuestItem(
         name="Diamond",
         description="A bright, valuable gemstone.",
-        image_path=base + "diamond.png",
+        image_path=_p("diamond.png"),
         quest_id="gem_set",
         value=200
     ))
@@ -222,7 +231,7 @@ def create_example_items():
     items.append(QuestItem(
         name="Alexandrite",
         description="A rare gemstone with shifting color.",
-        image_path=base + "alexandrite.png",
+        image_path=_p("alexandrite.png"),
         quest_id="gem_set",
         value=160
     ))
@@ -230,7 +239,7 @@ def create_example_items():
     items.append(QuestItem(
         name="Jade",
         description="A smooth green gemstone.",
-        image_path=base + "jade.png",
+        image_path=_p("jade.png"),
         quest_id="gem_set",
         value=90
     ))
@@ -238,7 +247,7 @@ def create_example_items():
     items.append(QuestItem(
         name="Opal",
         description="A shimmering gemstone with rainbow flashes.",
-        image_path=base + "opal.png",
+        image_path=_p("opal.png"),
         quest_id="gem_set",
         value=130
     ))
@@ -246,7 +255,7 @@ def create_example_items():
     items.append(QuestItem(
         name="Oynx",
         description="A light gemstone.",
-        image_path=base + "oynx.png",
+        image_path=_p("oynx.png"),
         quest_id="gem_set",
         value=85
     ))
@@ -254,7 +263,7 @@ def create_example_items():
     items.append(QuestItem(
         name="Topaz",
         description="A golden gemstone that catches the light.",
-        image_path=base + "topaz.png",
+        image_path=_p("topaz.png"),
         quest_id="gem_set",
         value=120
     ))
@@ -265,9 +274,7 @@ def create_example_items():
 
 if __name__ == "__main__":
     print("Testing Item classes with your sprites...\n")
-
     test_items = create_example_items()
     for it in test_items:
         print(it)
-
     print("\nItem tests completed!")

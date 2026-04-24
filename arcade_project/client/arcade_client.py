@@ -168,6 +168,11 @@ class ArcadeClient:
         except Exception:
             pass
         self._username = ""
+        if self._ellie_game is not None:
+            try:
+                self._ellie_game.cleanup()
+            except Exception:
+                pass
         self._ellie_game = None
         self._login.set_status("Logged out.", error=False)
         self._go_to(AppScreen.LOGIN)
@@ -222,6 +227,29 @@ class ArcadeClient:
                     pass
             self._session_start_time = None
 
+        # FIX: tell the platform server the game is over so the session is
+        # cleared and a new player joining doesn't land in the ghost session
+        if self._session_id:
+            try:
+                self._conn._request("end_game", {
+                    "game_id": int(self._session_id),
+                    "players": [self._username],
+                    "winner": self._username,
+                    "score": 0,
+                })
+            except Exception as e:
+                print(f"[leave] end_game error: {e}")
+
+        # FIX: clear the session id on the connection so chat stops sending
+        self._conn.clear_session()
+
+        # FIX: disconnect from C++ game server so the ghost player is removed
+        if self._ellie_game is not None:
+            try:
+                self._ellie_game.cleanup()
+            except Exception as e:
+                print(f"[leave] cleanup error: {e}")
+
         self._play.clear_chat()
         self._chat_shown.clear()
         self._session_id = ""
@@ -233,6 +261,10 @@ class ArcadeClient:
     def _on_match_found(self, session_id: str) -> None:
         self._session_id = session_id
         self._session_start_time = time.time()
+
+        # FIX: tell the connection which session we're in so send_chat works
+        self._conn.set_session(session_id)
+
         game_name = next((g.name for g in GAME_LIST if g.id == self._current_game_id), self._current_game_id)
         full = self._screen.get_rect()
         self._play = PlaySessionScreen(
@@ -308,14 +340,21 @@ class ArcadeClient:
                 else:
                     active.handle_event(event)
                     if self._ellie_game and self._current == AppScreen.PLAY:
+                        # FIX: re-read focus AFTER active.handle_event so that
+                        # a click that focuses the chat input this frame also
+                        # blocks keyboard events (like SPACE) in the same frame.
+                        chat_focused_now = self._play.chat_input_focused
                         if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION, pygame.MOUSEWHEEL):
                             self._ellie_game.handle_event(event)
-                        elif not chat_focused:
+                        elif not chat_focused_now:
                             self._ellie_game.handle_event(event)
 
             active.update(dt)
 
             if self._ellie_game and self._current == AppScreen.PLAY:
+                # FIX: tell the game whether chat is focused so it can
+                # suppress pygame.key.get_pressed() input at the source
+                self._ellie_game.chat_focused = self._play.chat_input_focused
                 try:
                     self._ellie_game.update(dt)
                     if self._ellie_game.state == "done":

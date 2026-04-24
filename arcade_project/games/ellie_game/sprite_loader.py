@@ -12,41 +12,50 @@ Date: [Date]
 import pygame
 import os
 
+# FIX: build absolute paths relative to this file so they work regardless
+# of what directory the game is launched from
+GAME_DIR = os.path.dirname(os.path.abspath(__file__))
+GRAPHICS_DIR = os.path.join(GAME_DIR, "graphics")
+
 class SpriteLoader:
     """Handles sprite loading for both characters and enemies with flexible organization."""
     
     @staticmethod
-    def load_character_sprites(character_name, base_path="../../graphics/characters"):
+    def load_character_sprites(character_name, base_path=None):
         """
         Load sprites for a character.
         
         Args:
             character_name (str): Name of character (e.g., "wizard", "cleric")
-            base_path (str): Base directory for character graphics
+            base_path (str): Ignored — always uses absolute path from GAME_DIR
             
         Returns:
             dict: Animation dictionary with status keys and frame lists
         """
-        return SpriteLoader._load_sprites(character_name, base_path, is_character=True)
+        # FIX: characters live in graphics/characters/characters/<name>/
+        abs_base = os.path.join(GRAPHICS_DIR, "characters", "characters")
+        return SpriteLoader._load_sprites(character_name, abs_base, is_character=True)
     
     @staticmethod
-    def load_enemy_sprites(enemy_name, base_path="../../graphics/enemies"):
+    def load_enemy_sprites(enemy_name, base_path=None):
         """
         Load sprites for an enemy.
 
         Args:
             enemy_name (str): Name of enemy (e.g., "forest_guard", "wandering_goblin")
-            base_path (str): Base directory for enemy graphics
+            base_path (str): Ignored — always uses absolute path from GAME_DIR
 
         Returns:
             dict: Animation dictionary with status keys and frame lists
         """
-        return SpriteLoader._load_sprites(enemy_name, base_path, is_character=False)
+        abs_base = os.path.join(GRAPHICS_DIR, "enemies")
+        return SpriteLoader._load_sprites(enemy_name, abs_base, is_character=False)
 
     @staticmethod
-    def load_npc_sprites(enemy_name, base_path="../../graphics/enemies"):
+    def load_npc_sprites(enemy_name, base_path=None):
         """Deprecated: use load_enemy_sprites instead."""
-        return SpriteLoader._load_sprites(enemy_name, base_path, is_character=False)
+        abs_base = os.path.join(GRAPHICS_DIR, "enemies")
+        return SpriteLoader._load_sprites(enemy_name, abs_base, is_character=False)
     
     @staticmethod
     def _load_sprites(name, base_path, is_character=True):
@@ -55,7 +64,7 @@ class SpriteLoader:
         
         Args:
             name (str): Character/enemy name
-            base_path (str): Base graphics directory
+            base_path (str): Absolute base graphics directory
             is_character (bool): True for characters, False for enemies
             
         Returns:
@@ -232,11 +241,13 @@ class SpriteLoader:
             return float('inf')
     
     @staticmethod
-    def get_sprite_info(name, base_path):
+    def get_sprite_info(name, base_path=None):
         """Get information about available sprites for debugging."""
+        # FIX: always use absolute path
+        abs_base = os.path.join(GRAPHICS_DIR, "characters", "characters")
         name_lower = name.lower()
-        character_dir = os.path.join(base_path, name_lower)
-        static_path = os.path.join(base_path, f"{name_lower}.png")
+        character_dir = os.path.join(abs_base, name_lower)
+        static_path = os.path.join(abs_base, f"{name_lower}.png")
         
         info = {
             'name': name,

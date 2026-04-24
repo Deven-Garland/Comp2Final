@@ -21,6 +21,7 @@ class ServerConnection:
         self._file = None
         self._lock = threading.Lock()
         self._username = None
+        self._session_id = None  # FIX: actually store session id
 
     def connect(self):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -125,10 +126,19 @@ class ServerConnection:
                 return {"session_id": data["game_id"]}
         return None
 
+    def set_session(self, session_id):
+        """Call this when a match is found so chat knows which session to use."""
+        self._session_id = session_id
+
+    def clear_session(self):
+        """Call this when leaving a game."""
+        self._session_id = None
+
     # --- Chat --------------------------------------------------------------
 
     def send_chat(self, message, recipient=None):
-        payload = {"game_id": self._current_session, "username": self._username, "text": message}
+        # FIX: _session_id is now properly set via set_session()
+        payload = {"game_id": self._session_id, "username": self._username, "text": message}
         return self._request("send_message", payload)
 
     def poll_chat(self, session_id):
@@ -141,10 +151,6 @@ class ServerConnection:
 
     def leave_session(self, session_id):
         pass
-
-    @property
-    def _current_session(self):
-        return getattr(self, "_session_id", None)
 
     def close(self):
         self.disconnect()
