@@ -60,6 +60,16 @@ DEFAULT_PLAYERS_PER_MATCH = int(os.getenv("PLATFORM_PLAYERS_PER_MATCH", "2"))
 DEFAULT_GAME_HOST = os.getenv("PLATFORM_GAME_HOST", "127.0.0.1")
 GAME_SERVER_ENV = os.getenv("PLATFORM_GAME_SERVERS", "")
 
+# Fixed TCP ports for each teammate's C++ game server — must match cpp_server/src/server.cpp
+# default_port_for_game(). Auto-registered on platform start unless --no-team-games.
+TEAM_CPP_GAME_PORTS = (
+    ("mennah", 50063),
+    ("deven", 50064),
+    ("ellie", 50072),
+    ("vraj", 50077),
+    ("kimberly", 50081),
+)
+
 REQUEST_TYPE_KEYS = ("type", "action")
 RESERVED_REQUEST_KEYS = (*REQUEST_TYPE_KEYS, "request_id", "params")
 
@@ -338,6 +348,19 @@ def run_server(
     players_per_match=DEFAULT_PLAYERS_PER_MATCH,
     game_servers=None,
 ):
+    # Embedded launcher (e.g. client.py) passes game_servers=None.
+    if game_servers is None:
+        skip_team = os.getenv("PLATFORM_NO_TEAM_GAMES", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        gh = os.getenv("PLATFORM_GAME_HOST", DEFAULT_GAME_HOST)
+        game_servers = parse_game_servers(
+            [], [], gh, register_team_games=not skip_team
+        )
+
     platform = PlatformServer(
         players_per_match=players_per_match,
         game_servers=game_servers,
@@ -390,18 +413,38 @@ def parse_args():
     parser.add_argument(
         "--game-host",
         default=DEFAULT_GAME_HOST,
-        help="Default host used with --game-port.",
+        help=(
+            "Host clients use to reach each C++ game server. On eceserver, set this to the "
+            "machine's hostname or IP (same value laptops will use)."
+        ),
+    )
+    parser.add_argument(
+        "--no-team-games",
+        action="store_true",
+        help=(
+            "Do not auto-register the five team C++ games (fixed ports on --game-host). "
+            "By default they are registered unless already overridden via "
+            "PLATFORM_GAME_SERVERS or --game-server. Or set PLATFORM_NO_TEAM_GAMES=1."
+        ),
     )
 
     return parser.parse_args()
 
 
-def parse_game_servers(named_servers, ports, default_host):
-    game_servers = parse_named_game_servers(GAME_SERVER_ENV)
+def parse_game_servers(named_servers, ports, default_host, register_team_games=True):
+    game_servers = []
+    game_servers.extend(parse_named_game_servers(GAME_SERVER_ENV))
     game_servers.extend(parse_named_game_servers(",".join(named_servers)))
 
     for index, port in enumerate(ports, start=1):
         game_servers.append((f"game{index}", default_host, port))
+
+    if register_team_games:
+        registered_names = {name for name, _, _ in game_servers}
+        for game_name, game_port in TEAM_CPP_GAME_PORTS:
+            if game_name not in registered_names:
+                game_servers.append((game_name, default_host, game_port))
+                registered_names.add(game_name)
 
     return game_servers
 
@@ -424,10 +467,14 @@ def parse_named_game_servers(raw_value):
 
 if __name__ == "__main__":
     args = parse_args()
+    skip_team = args.no_team_games or os.getenv(
+        "PLATFORM_NO_TEAM_GAMES", ""
+    ).strip().lower() in ("1", "true", "yes", "on")
     game_servers = parse_game_servers(
         args.game_server,
         args.game_port,
         args.game_host,
+        register_team_games=not skip_team,
     )
     run_server(
         host=args.host,

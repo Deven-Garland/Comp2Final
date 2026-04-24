@@ -11,8 +11,8 @@ specific game's chat is O(1). Each buffer only stores the most recent
 messages (default 20), older messages get dropped automatically once
 the buffer fills up.
 
-Author: Mennah Khaled Dewidar
-Date: [4/18/2026]
+Author: Mennah Khaled Dewidar % Deven Garland
+Date: [4/18/2026] Updated: [4/23/2026]
 Lab: Final Project - Leaderboard
 """
 from datastructures.bst import BinarySearchTree
