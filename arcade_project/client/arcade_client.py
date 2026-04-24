@@ -9,6 +9,7 @@ Date: Spring 2026
 Lab: Final Project
 """
 
+import os
 import sys
 import threading
 import pygame
@@ -34,9 +35,9 @@ WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
 
-# Server settings
-SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 9000
+# Server settings (overridable for laptops connecting to ece)
+SERVER_HOST = os.environ.get("ARCADE_PLATFORM_HOST", "127.0.0.1")
+SERVER_PORT = int(os.environ.get("ARCADE_PLATFORM_PORT", "9000"))
 
 # Hardcoded game list (no server endpoint for this yet)
 GAME_LIST = [
@@ -69,8 +70,10 @@ class ArcadeClient:
         self._chat_shown = set()
         self._ellie_game = None
 
-        # Connect to platform server
-        self._conn = ServerConnection(SERVER_HOST, SERVER_PORT)
+        # Connect to platform server (env wins over module defaults)
+        _host = os.environ.get("ARCADE_PLATFORM_HOST", SERVER_HOST)
+        _port = int(os.environ.get("ARCADE_PLATFORM_PORT", str(SERVER_PORT)))
+        self._conn = ServerConnection(_host, _port)
         try:
             self._conn.connect()
             self._connected = True
