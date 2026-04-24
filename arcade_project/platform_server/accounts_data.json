@@ -17,6 +17,12 @@
     "minutes_played": 0,
     "messages_sent": 0
   },
+  "D": {
+    "password": "D",
+    "favorite_game": "ellie",
+    "minutes_played": 0,
+    "messages_sent": 0
+  },
   "vraj": {
     "password": "yo",
     "favorite_game": "",
@@ -26,6 +32,12 @@
   "DJG": {
     "password": "123",
     "favorite_game": "",
+    "minutes_played": 0,
+    "messages_sent": 0
+  },
+  "1": {
+    "password": "2",
+    "favorite_game": "ellie",
     "minutes_played": 0,
     "messages_sent": 0
   },
