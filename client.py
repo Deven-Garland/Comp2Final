@@ -94,7 +94,14 @@ def start_cpp_team_servers() -> None:
             _cpp_children.append(proc)
             time.sleep(0.12)
         except OSError as e:
-            print(f"[client] Could not start C++ server for {game}: {e}")
+            if getattr(e, "errno", None) == 8:
+                print(
+                    f"[client] Could not start C++ server for {game}: Exec format error — "
+                    f"'{binary}' is not a Linux binary (often committed from Windows). "
+                    "On ece run: cd arcade_project/cpp_server && make clean && make"
+                )
+            else:
+                print(f"[client] Could not start C++ server for {game}: {e}")
 
     if _cpp_children:
         print(f"[client] Started {len(_cpp_children)} C++ game server(s).")
