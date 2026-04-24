@@ -321,8 +321,6 @@ class Level:
 
                 if player_id not in self.other_players:
                     character_type = data.get('character_type', '').lower()
-                    if not character_type:
-                        continue
 
                     all_classes = get_all_character_classes()
                     CharClass = None

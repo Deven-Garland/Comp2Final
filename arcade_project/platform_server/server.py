@@ -1,34 +1,15 @@
 # Platform server (you implement).
 """
-chat.py - Per-game-session chat system
-
-Handles chat messages for each game session on the platform. Each active
-game session has its own chat history stored in a circular buffer, so
-players only see messages from the game they are currently in.
-
-We use a HashTable to map game_id -> CircularBuffer, so looking up a
-specific game's chat is O(1). Each buffer only stores the most recent
-messages (default 20), older messages get dropped automatically once
-the buffer fills up.
-
-Author: Mennah Khaled Dewidar
-Date: [4/18/2026]
-Lab: Final Project - Server
-"""
-"""
-server.py - Runtime entrypoint for the arcade platform server.
-"""
-
-"""
-server.py - Platform server runtime
-"""
-"""
 server.py - Platform server runtime
 
 Runs the platform server as a TCP process so a C++ game client/server can
 connect to it. The protocol is newline-delimited JSON.
 
 The platform server can also store the host/port for multiple C++ game servers.
+
+Author: Mennah Khaled Dewidar
+Date: [4/18/2026]
+Lab: Final Project - Server
 """
 
 import argparse
@@ -91,6 +72,9 @@ class PlatformServer:
         self.players_per_match = players_per_match
         self.next_game_id = 1
 
+        # Active session — all players join the same session until it ends
+        self.active_game_id = None
+
         self.data_ingest = DataIngest(
             self.accounts,
             self.leaderboard,
@@ -107,7 +91,6 @@ class PlatformServer:
     def join_queue(self, username):
         if not self.accounts.exists(username):
             return False
-
         self.matchmaking.join_queue(username)
         return True
 
@@ -117,10 +100,15 @@ class PlatformServer:
         if len(players) == 0:
             return None
 
-        game_id = self.next_game_id
-        self.next_game_id += 1
-
-        self.chat.start_session(game_id)
+        # If there's already an active session, add this player to it
+        # Otherwise create a new one
+        if self.active_game_id is not None:
+            game_id = self.active_game_id
+        else:
+            game_id = self.next_game_id
+            self.next_game_id += 1
+            self.chat.start_session(game_id)
+            self.active_game_id = game_id
 
         return {
             "game_id": game_id,
@@ -147,6 +135,9 @@ class PlatformServer:
         self.history.add_match(game_id, players, winner)
         self.leaderboard.add_score(winner, score)
         self.chat.end_session(game_id)
+        # Clear the active session so a new one is created next time
+        if self.active_game_id == game_id:
+            self.active_game_id = None
         return True
 
     def top_players(self, k):
