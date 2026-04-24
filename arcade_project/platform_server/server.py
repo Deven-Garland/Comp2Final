@@ -28,6 +28,7 @@ from platform_server.data_ingest import DataIngest
 from platform_server.history import History
 from platform_server.leaderboard import Leaderboard
 from platform_server.matchmaking import Matchmaking
+from platform_server.ratings import Ratings
 
 
 DEFAULT_HOST = os.getenv("PLATFORM_SERVER_HOST", "127.0.0.1")
@@ -50,6 +51,7 @@ class PlatformServer:
         self.chat = Chat()
         self.games = GameRegistry(game_servers)
         self.game_connector = GameConnector(self.games)
+        self.ratings = Ratings(sorted(self.games.game_servers.keys()))
         self.players_per_match = players_per_match
         self.next_game_id = 1
         self.active_game_id = None
@@ -141,6 +143,19 @@ class PlatformServer:
     def get_messages_sent(self, username):
         return self.accounts.get_messages_sent(username)
 
+    def rate_game(self, game_name, stars):
+        self.ratings.rate(game_name, int(stars))
+        return True
+
+    def get_rating_rankings(self):
+        return self.ratings.get_rankings()
+
+    def get_highest_rated_game(self):
+        return self.ratings.get_highest_rated()
+
+    def get_lowest_rated_game(self):
+        return self.ratings.get_lowest_rated()
+
 
 class GameRegistry:
     def __init__(self, game_servers=None):
@@ -198,6 +213,7 @@ class RequestDispatcher:
         "send_message", "get_chat", "end_game", "top_players",
         "player_history", "set_favorite", "get_favorite",
         "add_minutes", "get_minutes", "get_messages_sent",
+        "rate_game", "get_rating_rankings", "get_highest_rated_game", "get_lowest_rated_game",
     )
 
     def __init__(self, platform):

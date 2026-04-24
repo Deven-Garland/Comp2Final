@@ -134,9 +134,26 @@ def stop_cpp_team_servers() -> None:
     _cpp_children.clear()
 
 
+def _team_game_servers() -> List[tuple]:
+    """Host/ports for each teammate C++ server — must match cpp_server default_port_for_game."""
+    gh = os.environ.get("PLATFORM_GAME_HOST", SERVER_HOST)
+    return [
+        ("mennah", gh, 50063),
+        ("deven", gh, 50064),
+        ("ellie", gh, 50072),
+        ("vraj", gh, 50077),
+        ("kimberly", gh, 50081),
+    ]
+
+
 def start_server() -> None:
     try:
-        run_server(host=SERVER_HOST, port=SERVER_PORT, players_per_match=1)
+        run_server(
+            host=SERVER_HOST,
+            port=SERVER_PORT,
+            players_per_match=1,
+            game_servers=_team_game_servers(),
+        )
     except Exception as e:
         print(f"[server] Error: {e}")
 

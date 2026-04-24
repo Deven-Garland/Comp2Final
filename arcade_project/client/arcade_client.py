@@ -76,6 +76,7 @@ class ArcadeClient:
             on_logout=self._handle_logout,
             on_stats=self._handle_stats,
             on_star=self._handle_star,
+            on_rate_stars=self._handle_rate_game,
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
@@ -115,6 +116,7 @@ class ArcadeClient:
                 self._username = username
                 self._login.set_status(f"Welcome back, {username}!", error=False)
                 self._load_favorite()
+                self._sync_game_ratings()
                 self._go_to(AppScreen.BROWSER)
             else:
                 self._login.set_status("Invalid username or password.", error=True)
@@ -131,6 +133,8 @@ class ArcadeClient:
                 self._username = username
                 self._conn.login(username, password)
                 self._login.set_status(f"Account created! Welcome, {username}!", error=False)
+                self._load_favorite()
+                self._sync_game_ratings()
                 self._go_to(AppScreen.BROWSER)
             else:
                 self._login.set_status("Username already taken.", error=True)
@@ -141,6 +145,20 @@ class ArcadeClient:
         try:
             fav = self._conn.get_favorite(self._username)
             self._browser.set_favorite(fav or "")
+        except Exception:
+            pass
+
+    def _sync_game_ratings(self) -> None:
+        """Fetches community star averages for the game list (no login required on server)."""
+        if not self._connected:
+            return
+        try:
+            r = self._conn.get_rating_rankings()
+            if r.get("status") != "ok":
+                return
+            d = r.get("data")
+            if isinstance(d, list):
+                self._browser.set_average_ratings(d)
         except Exception:
             pass
 
@@ -178,6 +196,16 @@ class ArcadeClient:
         self._go_to(AppScreen.LOGIN)
 
     def _handle_stats(self) -> None:
+        game_ratings: list = []
+        try:
+            r = self._conn.get_rating_rankings()
+            if r.get("status") == "ok":
+                d = r.get("data")
+                if isinstance(d, list):
+                    game_ratings = d
+                    self._browser.set_average_ratings(d)
+        except Exception:
+            pass
         try:
             minutes = self._conn.get_minutes(self._username)
             fav_id = self._conn.get_favorite(self._username)
@@ -188,12 +216,14 @@ class ArcadeClient:
                 messages_sent=int(messages) if messages else 0,
                 favorite_game=fav_name,
                 minutes_played=int(minutes) if minutes else 0,
+                game_ratings=game_ratings,
             ))
         except Exception:
-            pass
+            self._stats.set_stats(PlayerStats(game_ratings=game_ratings))
         self._go_to(AppScreen.STATS)
 
     def _handle_back_to_browser(self) -> None:
+        self._sync_game_ratings()
         self._go_to(AppScreen.BROWSER)
 
     def _handle_star(self, game_id: str) -> None:
@@ -201,6 +231,16 @@ class ArcadeClient:
             self._conn.set_favorite(self._username, game_id)
         except Exception as e:
             print(f"[star] {e}")
+
+    def _handle_rate_game(self, game_id: str, stars: int) -> None:
+        try:
+            r = self._conn.rate_game(game_id, stars)
+            if r.get("status") == "ok":
+                self._sync_game_ratings()
+            else:
+                print(f"[ratings] {r.get('message', r)}")
+        except Exception as e:
+            print(f"[ratings] {e}")
 
     # --- Queue -------------------------------------------------------------
 

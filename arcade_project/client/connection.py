@@ -84,6 +84,18 @@ class ServerConnection:
     def get_leaderboard(self, top_n=10):
         return self._request("top_players", {"k": top_n})
 
+    def rate_game(self, game_name, stars):
+        return self._request("rate_game", {"game_name": game_name, "stars": int(stars)})
+
+    def get_rating_rankings(self):
+        return self._request("get_rating_rankings")
+
+    def get_highest_rated_game(self):
+        return self._request("get_highest_rated_game")
+
+    def get_lowest_rated_game(self):
+        return self._request("get_lowest_rated_game")
+
     def get_minutes(self, username):
         resp = self._request("get_minutes", {"username": username})
         if resp.get("status") == "ok":

@@ -22,10 +22,10 @@ class GameRating:
  
  
 class Ratings:
-    def __init__(self, catalog):
-        # HashTable: game name -> GameRating object. O(1) lookup by name.
+    def __init__(self, game_names):
+        # HashTable: platform game id (C++ server key) -> GameRating. O(1) lookup.
         self.game_ratings = HashTable()
-        for game_name in catalog.players:
+        for game_name in game_names:
             self.game_ratings[game_name] = GameRating(game_name)
  
     def rate(self, game_name, stars):
