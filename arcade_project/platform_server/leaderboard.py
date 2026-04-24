@@ -16,75 +16,71 @@ Date: [4/18/2026]
 Lab: Final Project - Leaderboard
 """
 from datastructures.bst import BinarySearchTree
-
-
+from datastructures.hash_table import HashTable
+ 
+ 
 class LeaderboardEntry:
     def __init__(self, username, score):
         self.username = username
         self.score = score
-
     def __lt__(self, other):
         return self.score < other.score
-
     def __gt__(self, other):
         return self.score > other.score
-
     def __eq__(self, other):
         return self.score == other.score
-
     def __str__(self):
         return f"{self.username}: {self.score}"
-
     def __repr__(self):
         """
         returns a developer-friendly string representation (often the same as __str__ for simple classes), used in the interactive shell
         """
         return self.__str__()
-
-
+ 
+ 
 class Leaderboard:
     def __init__(self):
         self.tree = BinarySearchTree()
-
+        # HashTable: username -> LeaderboardEntry
+        # Lets us update a player's score in O(1) without scanning the BST
+        self._entries = HashTable()
+ 
     def add_score(self, username, score):
+        # If player already has a score, remove the old entry from the BST
+        if username in self._entries:
+            self.tree.delete(self._entries[username])
         entry = LeaderboardEntry(username, score)
         self.tree.insert(entry)
-
+        self._entries[username] = entry
+ 
     def _get_sorted(self):
         """
         uses BST inorder traversal format
         """
         result = {0: 0}
         self.tree.inorder(self.tree.root, result)
-
         values = []
         i = 1
         while i <= result[0]:
             values.append(result[i])
             i += 1
-
         return values
-
+ 
     def top_k(self, k):
         sorted_values = self._get_sorted()
-
         result = []
         i = len(sorted_values) - 1
-
         count = 0
         while i >= 0 and count < k:
             result.append(sorted_values[i])
             i -= 1
             count += 1
-
         return result
-
+ 
     def range_query(self, low, high):
         sorted_values = self._get_sorted()
-
         result = []
         for entry in sorted_values:
             if low <= entry.score <= high:
                 result.append(entry)
-
         return result
