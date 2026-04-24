@@ -17,38 +17,41 @@ Lab: Final Project - Matchmaking
 """
 import time
 from datastructures.heap import MinHeap
-
-
+from datastructures.array import ArrayList
+ 
+ 
 class QueueEntry:
     def __init__(self, username):
         self.username = username
         self.time = time.time()
-
+ 
     def __lt__(self, other):
         return self.time < other.time
-
+ 
     def __gt__(self, other):
         return self.time > other.time
-
-
+ 
+ 
 class Matchmaking:
     def __init__(self):
         self.heap = MinHeap()
-
+        self.match_history = ArrayList()
+ 
     def join_queue(self, username):
         self.heap.insert(QueueEntry(username))
-
+ 
     def match_players(self, count=2):
         if self.heap.get_size() < count:
             return []
-
+ 
         result = []
-
+ 
         for i in range(count):
             entry = self.heap.remove_min()
             result.append(entry.username)
-
+ 
+        self.match_history.append(result)
         return result
-
+ 
     def size(self):
         return self.heap.get_size()
