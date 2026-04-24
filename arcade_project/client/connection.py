@@ -2,7 +2,6 @@
 connection.py - Client connection to the platform server
 
 Matches the new server protocol: newline-delimited JSON over TCP.
-Each request is a JSON object ending with \n, each response is a JSON object ending with \n.
 
 Author: Team MOSFET
 Date: Spring 2026
@@ -12,15 +11,9 @@ Lab: Final Project
 import json
 import socket
 import threading
-import time
 
 
 class ServerConnection:
-    """
-    Client-side connection to the platform server.
-    Uses newline-delimited JSON protocol to match server.py's RequestDispatcher.
-    """
-
     def __init__(self, host="127.0.0.1", port=9000):
         self.host = host
         self.port = port
@@ -44,7 +37,6 @@ class ServerConnection:
             self._file = None
 
     def _request(self, action, payload=None):
-        """Send a request and return the response dict."""
         if payload is None:
             payload = {}
         request = {"action": action, **payload}
@@ -54,7 +46,6 @@ class ServerConnection:
         if not line:
             return {"status": "error", "message": "No response from server"}
         resp = json.loads(line.strip())
-        # Normalize to {status, data, message} format
         if "ok" in resp:
             if resp["ok"]:
                 return {"status": "ok", "data": resp.get("result", {})}
@@ -92,13 +83,39 @@ class ServerConnection:
     def get_leaderboard(self, top_n=10):
         return self._request("top_players", {"k": top_n})
 
+    def get_minutes(self, username):
+        resp = self._request("get_minutes", {"username": username})
+        if resp.get("status") == "ok":
+            return resp.get("data") or 0
+        return 0
+
+    def add_minutes(self, username, minutes):
+        return self._request("add_minutes", {"username": username, "minutes": minutes})
+
+    def get_messages_sent(self, username):
+        resp = self._request("get_messages_sent", {"username": username})
+        if resp.get("status") == "ok":
+            return resp.get("data") or 0
+        return 0
+
+    # --- Favorite game -----------------------------------------------------
+
+    def get_favorite(self, username):
+        resp = self._request("get_favorite", {"username": username})
+        if resp.get("status") == "ok":
+            return resp.get("data") or ""
+        return ""
+
+    def set_favorite(self, username, game_id):
+        return self._request("set_favorite", {"username": username, "game_id": game_id})
+
     # --- Matchmaking -------------------------------------------------------
 
     def join_queue(self, skill_rating=1000):
         return self._request("join_queue", {"username": self._username})
 
     def leave_queue(self):
-        pass  # no endpoint yet
+        pass
 
     def poll_match(self):
         resp = self._request("try_create_match")
@@ -123,9 +140,7 @@ class ServerConnection:
     # --- Session -----------------------------------------------------------
 
     def leave_session(self, session_id):
-        pass  # no endpoint yet
-
-    # --- Internal ----------------------------------------------------------
+        pass
 
     @property
     def _current_session(self):

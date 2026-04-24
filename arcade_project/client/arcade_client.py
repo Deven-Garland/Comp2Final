@@ -1,15 +1,13 @@
 """
 arcade_client.py - Central client class + game loop
 
-Manages screen transitions and wires all callbacks from screens.py
-to the connection layer. Run via client.py at the project root.
-
 Author: Team MOSFET
 Date: Spring 2026
 Lab: Final Project
 """
 
 import sys
+import time
 import threading
 import pygame
 
@@ -28,17 +26,13 @@ from client.screens import (
 from client.connection import ServerConnection
 
 
-# Window settings
 WINDOW_W = 1024
 WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
-
-# Server settings
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 9000
 
-# Hardcoded game list (no server endpoint for this yet)
 GAME_LIST = [
     GameInfo("deven",    "Deven's Game",    "Fast reflex mini-game"),
     GameInfo("ellie",    "Ellie's Game",    "Puzzle challenge"),
@@ -47,13 +41,10 @@ GAME_LIST = [
     GameInfo("vraj",     "Vraj's Game",     "Endless runner"),
 ]
 
+GAME_NAMES = {g.id: g.name for g in GAME_LIST}
+
 
 class ArcadeClient:
-    """
-    Top-level client. Owns the pygame window, the server connection,
-    and all screen objects. Drives the main loop.
-    """
-
     def __init__(self):
         pygame.init()
         self._screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
@@ -61,15 +52,14 @@ class ArcadeClient:
         self._clock = pygame.time.Clock()
         self._running = False
 
-        # Current screen state
         self._current = AppScreen.LOGIN
         self._username = ""
         self._current_game_id = ""
         self._session_id = ""
         self._chat_shown = set()
         self._ellie_game = None
+        self._session_start_time = None
 
-        # Connect to platform server
         self._conn = ServerConnection(SERVER_HOST, SERVER_PORT)
         try:
             self._conn.connect()
@@ -78,29 +68,18 @@ class ArcadeClient:
             print(f"[warn] Could not connect to server: {e}")
             self._connected = False
 
-        # Build all screens
         full = self._screen.get_rect()
-        self._login = LoginScreen(
-            full,
-            on_login=self._handle_login,
-            on_register=self._handle_register,
-        )
+        self._login = LoginScreen(full, on_login=self._handle_login, on_register=self._handle_register)
         self._browser = BrowserScreen(
             full,
             on_play=self._handle_play,
             on_logout=self._handle_logout,
             on_stats=self._handle_stats,
+            on_star=self._handle_star,
             games=GAME_LIST,
         )
-        self._stats = StatsScreen(
-            full,
-            on_back=self._handle_back_to_browser,
-        )
-        self._queue = QueueScreen(
-            full,
-            game_name="",
-            on_cancel=self._handle_cancel_queue,
-        )
+        self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
+        self._queue = QueueScreen(full, game_name="", on_cancel=self._handle_cancel_queue)
         self._play = PlaySessionScreen(
             full,
             game_title="",
@@ -111,8 +90,6 @@ class ArcadeClient:
 
         if not self._connected:
             self._login.set_status("Could not reach server. Check your connection.", error=True)
-
-    # --- Screen helpers ----------------------------------------------------
 
     def _go_to(self, screen: AppScreen) -> None:
         self._current = screen
@@ -126,7 +103,7 @@ class ArcadeClient:
             AppScreen.PLAY:    self._play,
         }[self._current]
 
-    # --- Login callbacks ---------------------------------------------------
+    # --- Login -------------------------------------------------------------
 
     def _handle_login(self, username: str, password: str) -> None:
         if not username or not password:
@@ -137,6 +114,7 @@ class ArcadeClient:
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._username = username
                 self._login.set_status(f"Welcome back, {username}!", error=False)
+                self._load_favorite()
                 self._go_to(AppScreen.BROWSER)
             else:
                 self._login.set_status("Invalid username or password.", error=True)
@@ -148,8 +126,7 @@ class ArcadeClient:
             self._login.set_status("Enter a username and password.", error=True)
             return
         try:
-            email = f"{username}@arcade.local"
-            resp = self._conn.register(username, password, email)
+            resp = self._conn.register(username, password)
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._username = username
                 self._conn.login(username, password)
@@ -160,7 +137,14 @@ class ArcadeClient:
         except Exception as e:
             self._login.set_status(f"Server error: {e}", error=True)
 
-    # --- Browser callbacks -------------------------------------------------
+    def _load_favorite(self) -> None:
+        try:
+            fav = self._conn.get_favorite(self._username)
+            self._browser.set_favorite(fav or "")
+        except Exception:
+            pass
+
+    # --- Browser -----------------------------------------------------------
 
     def _handle_play(self, game_id: str) -> None:
         self._current_game_id = game_id
@@ -190,17 +174,16 @@ class ArcadeClient:
 
     def _handle_stats(self) -> None:
         try:
-            resp = self._conn.get_leaderboard(10)
-            if resp.get("status") == "ok":
-                data = resp.get("data", {})
-                entries = data.get("leaderboard", []) if isinstance(data, dict) else []
-                my_entry = next((e for e in entries if e.get("username") == self._username), {})
-                self._stats.set_stats(PlayerStats(
-                    games_played=my_entry.get("games_played", 0),
-                    messages_sent=0,
-                    friends=0,
-                    hours_playing=my_entry.get("hours_playing", 0.0),
-                ))
+            minutes = self._conn.get_minutes(self._username)
+            fav_id = self._conn.get_favorite(self._username)
+            fav_name = GAME_NAMES.get(fav_id, fav_id) if fav_id else "None"
+            messages = self._conn.get_messages_sent(self._username)
+            self._stats.set_stats(PlayerStats(
+                games_played=0,
+                messages_sent=int(messages) if messages else 0,
+                favorite_game=fav_name,
+                minutes_played=int(minutes) if minutes else 0,
+            ))
         except Exception:
             pass
         self._go_to(AppScreen.STATS)
@@ -208,13 +191,19 @@ class ArcadeClient:
     def _handle_back_to_browser(self) -> None:
         self._go_to(AppScreen.BROWSER)
 
-    # --- Queue callbacks ---------------------------------------------------
+    def _handle_star(self, game_id: str) -> None:
+        try:
+            self._conn.set_favorite(self._username, game_id)
+        except Exception as e:
+            print(f"[star] {e}")
+
+    # --- Queue -------------------------------------------------------------
 
     def _handle_cancel_queue(self) -> None:
         self._ellie_game = None
         self._go_to(AppScreen.BROWSER)
 
-    # --- Play session callbacks --------------------------------------------
+    # --- Play session ------------------------------------------------------
 
     def _handle_send_chat(self, text: str) -> None:
         try:
@@ -224,6 +213,15 @@ class ArcadeClient:
         self._play.add_chat(self._username, text)
 
     def _handle_leave(self) -> None:
+        if self._session_start_time is not None:
+            elapsed_minutes = int((time.time() - self._session_start_time) / 60)
+            if elapsed_minutes > 0:
+                try:
+                    self._conn.add_minutes(self._username, elapsed_minutes)
+                except Exception:
+                    pass
+            self._session_start_time = None
+
         self._play.clear_chat()
         self._chat_shown.clear()
         self._session_id = ""
@@ -234,10 +232,8 @@ class ArcadeClient:
 
     def _on_match_found(self, session_id: str) -> None:
         self._session_id = session_id
-        game_name = next(
-            (g.name for g in GAME_LIST if g.id == self._current_game_id),
-            self._current_game_id,
-        )
+        self._session_start_time = time.time()
+        game_name = next((g.name for g in GAME_LIST if g.id == self._current_game_id), self._current_game_id)
         full = self._screen.get_rect()
         self._play = PlaySessionScreen(
             full,
@@ -249,7 +245,6 @@ class ArcadeClient:
         self._play.add_chat("server", "Match found! Game starting...")
         self._chat_shown.clear()
 
-        # Launch Ellie's game inline in the left panel
         if self._current_game_id == "ellie":
             try:
                 from arcade_project.games.ellie_game.game import EllieGame
@@ -286,11 +281,7 @@ class ArcadeClient:
                     for msg in messages:
                         key = (msg.get("sender"), msg.get("message"), msg.get("time"))
                         if key not in self._chat_shown and msg.get("sender") != self._username:
-                            self._play.add_chat(
-                                msg["sender"],
-                                msg["message"],
-                                msg.get("time", 0.0),
-                            )
+                            self._play.add_chat(msg["sender"], msg["message"], msg.get("time", 0.0))
                             self._chat_shown.add(key)
             except Exception as e:
                 print(f"[poll chat] {e}")
@@ -306,20 +297,27 @@ class ArcadeClient:
             dt = self._clock.tick(FPS) / 1000.0
             active = self._active_screen()
 
+            chat_focused = (
+                self._current == AppScreen.PLAY and
+                self._play.chat_input_focused
+            )
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._running = False
                 else:
                     active.handle_event(event)
                     if self._ellie_game and self._current == AppScreen.PLAY:
-                        self._ellie_game.handle_event(event)
+                        if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION, pygame.MOUSEWHEEL):
+                            self._ellie_game.handle_event(event)
+                        elif not chat_focused:
+                            self._ellie_game.handle_event(event)
 
             active.update(dt)
 
             if self._ellie_game and self._current == AppScreen.PLAY:
                 try:
                     self._ellie_game.update(dt)
-                    # If player clicked "Back to Games" on the stats screen
                     if self._ellie_game.state == "done":
                         self._handle_leave()
                 except Exception as e:
