@@ -1,13 +1,17 @@
 # ECE 3822 Spring 2026 Final Project: Team MOSFET
-This is the GitHub repository for Team MOSFET's Computation 2 final project. 
 
-Members:
+This is the GitHub repository for Team MOSFET's Computation 2 final project.
+
+## Members
 - Deven Garland
 - Ellie Lutz
 - Kimberly Velasquez
 - Mennah Dewidar
 - Vraj Patel
 
+## Project Structure
+
+```
 arcade_project/
 │
 ├── client.py                          # Run this to launch the arcade client
@@ -33,11 +37,9 @@ arcade_project/
 │   ├── graph.py                       # Directed weighted graph
 │   └── sparse_matrix.py              # Sparse matrix (CSR format)
 │
-
-│
 ├── games/
 │   ├── deven_game/game.py
-│   ├── ellie_game/game.py             
+│   ├── ellie_game/game.py
 │   ├── kimberly_game/game.py
 │   ├── mennah_game/game.py
 │   └── vraj_game/game.py
@@ -53,29 +55,39 @@ arcade_project/
     └── synthetic_dataset/             # CSV files (10,000+ players, 100,000+ sessions)
 ```
 
----
+## Running the Arcade
+
+```bash
+python3 client.py
+```
+
+This automatically starts the platform server and C++ game server in the background, then opens the arcade window.
 
 ## Generating the UML Diagram with pyreverse
 
 Install pylint (includes pyreverse):
-```
+
+```bash
 pip install pylint
 ```
 
 Run from the project root to generate a UML PNG of the Python client:
-```
+
+```bash
 pyreverse -o png -p ArcadeClient client/ platform_server/ datastructures/
 ```
 
 This outputs `classes_ArcadeClient.png` — insert this image into Section 2.2 of the design doc.
 
 To generate just the client classes:
-```
+
+```bash
 pyreverse -o png -p Client client/
 ```
 
 To generate just the data structures:
-```
+
+```bash
 pyreverse -o png -p DataStructures datastructures/
 ```
 
