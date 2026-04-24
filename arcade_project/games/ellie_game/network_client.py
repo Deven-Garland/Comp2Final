@@ -31,7 +31,8 @@ class NetworkClient:
         self.sock = None
         self.connected = False
         self.my_player_id = None
-        
+        self.instance_id = None
+
         self.update_queue = Queue()
         self.receiver_thread = None
         self.running = False
@@ -85,30 +86,28 @@ class NetworkClient:
     def _process_message(self, msg):
         """Process a message from server"""
         # First check message type (before any separator)
+        msg = msg.strip("\r")
+
         if msg.startswith("CONNECTED|"):
-            parts = msg.split('|')
+            # CONNECTED|player_id  or  CONNECTED|player_id|instance_id
+            parts = msg.split("|")
             self.my_player_id = int(parts[1])
+            if len(parts) > 2 and parts[2]:
+                self.instance_id = int(parts[2])
             print(f"Assigned player ID: {self.my_player_id}")
-            
-        elif msg.startswith("STATE||"):
-            # Game state update
-            # Format: STATE||<serialized_player1>||<serialized_player2>||...
-            # Players are separated by || (double pipe) to avoid conflicts with serialization formats
-            parts = msg.split('||')
-            print(f"[DEBUG] Received STATE message with {len(parts)-1} player entries")
+
+        elif msg.startswith("STATE|") and "||" in msg:
+            # New: STATE|instance_id||<ser>||<ser>||...
+            # Legacy: STATE||<ser>||<ser>||...
+            parts = msg.split("||")
             players = {}
-            
             for i in range(1, len(parts)):
-                if parts[i]:
-                    print(f"[DEBUG] Parsing player {i}: '{parts[i][:50]}...'")  # First 50 chars
-                    player_data = self._deserialize_player(parts[i])
-                    if player_data:
-                        print(f"[DEBUG] Parsed player: ID={player_data['id']}, Name={player_data['name']}")
-                        players[player_data['id']] = player_data
-                    else:
-                        print(f"[DEBUG] Failed to parse player data")
-            
-            print(f"[DEBUG] Total players parsed: {len(players)}")
+                chunk = parts[i].strip()
+                if not chunk:
+                    continue
+                player_data = self._deserialize_player(chunk)
+                if player_data:
+                    players[player_data["id"]] = player_data
             self.update_queue.put(players)
     
     def _deserialize_player(self, data):
