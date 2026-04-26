@@ -5,9 +5,9 @@
 #   src/      - Source files (.cpp)
 #
 # Usage:
-#   make                    # Compile with TEXT serializer (default)
-#   make SERIALIZER=TEXT    # Compile with TEXT serializer
+#   make                    # Compile with JSON serializer (default)
 #   make SERIALIZER=JSON    # Compile with JSON serializer
+#   make SERIALIZER=TEXT    # Compile with TEXT serializer
 #   make SERIALIZER=BINARY  # Compile with BINARY serializer
 #   make clean              # Remove all compiled files
 #
@@ -16,8 +16,8 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -I include
 
-# Serializer selection (default: TEXT)
-SERIALIZER ?= TEXT
+# Serializer selection (default: JSON)
+SERIALIZER ?= JSON
 
 ifeq ($(SERIALIZER), JSON)
     CXXFLAGS += -DUSE_JSON

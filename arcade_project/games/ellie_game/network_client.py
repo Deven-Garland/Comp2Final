@@ -7,7 +7,7 @@ Handles connection to game server with support for three serialization formats:
 - BINARY: Fixed 88-byte struct
 
 Usage:
-    client = NetworkClient("Alice", serializer='text')
+    client = NetworkClient("Alice", serializer='json')
     client = NetworkClient("Bob", serializer='json')
     client = NetworkClient("Charlie", serializer='binary')
 """
@@ -19,14 +19,14 @@ import struct
 from queue import Queue
 
 class NetworkClient:
-    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='text'):
+    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='json'):
         self.player_name = player_name
         self.server_host = server_host
         self.server_port = server_port
         self.serializer = serializer.lower()  # 'text', 'json', or 'binary'
         
-        if self.serializer not in ['text', 'json', 'binary']:
-            raise ValueError(f"Invalid serializer: {serializer}. Must be 'text', 'json', or 'binary'")
+        if self.serializer != 'json':
+            raise ValueError(f"Invalid serializer: {serializer}. Must be 'json'")
         
         self.sock = None
         self.connected = False

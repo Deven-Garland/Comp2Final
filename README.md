@@ -55,13 +55,22 @@ arcade_project/
     └── synthetic_dataset/             # CSV files (10,000+ players, 100,000+ sessions)
 ```
 
-## Running the Arcade
+## Running the Arcade (JSON + SSH Tunnel)
+
+This project is run with a remote server workflow:
+
+1. Start the C++ game server on ECE with JSON serialization.
+2. Start the Python platform server on ECE.
+3. On your laptop, create SSH port forwarding.
+4. Run the local client/game process and connect to forwarded localhost ports.
+
+Example SSH forward command:
 
 ```bash
-python3 client.py
+ssh -L 8006:localhost:8005 your_username@ece-000.eng.temple.edu -N
 ```
 
-This automatically starts the platform server and C++ game server in the background, then opens the arcade window.
+Then launch a client locally and target `localhost` with the forwarded port.
 
 ## Generating the UML Diagram with pyreverse
 
