@@ -1,18 +1,13 @@
 # Leaderboards (you implement).
 """
-chat.py - Per-game-session chat system
+leaderboard.py - Shared leaderboard system
 
-Handles chat messages for each game session on the platform. Each active
-game session has its own chat history stored in a circular buffer, so
-players only see messages from the game they are currently in.
+Stores per-player scores for a leaderboard using:
+- a BST for sorted score ordering
+- a HashTable for O(1) lookup by username
 
-We use a HashTable to map game_id -> CircularBuffer, so looking up a
-specific game's chat is O(1). Each buffer only stores the most recent
-messages (default 20), older messages get dropped automatically once
-the buffer fills up.
-
-Author: Mennah Khaled Dewidar % Deven Garland
-Date: [4/18/2026] Updated: [4/23/2026]
+Author: Mennah Khaled Dewidar & Deven Garland
+Date: [4/18/2026] Updated: [4/26/2026]
 Lab: Final Project - Leaderboard
 """
 from datastructures.bst import BinarySearchTree
@@ -24,11 +19,15 @@ class LeaderboardEntry:
         self.username = username
         self.score = score
     def __lt__(self, other):
-        return self.score < other.score
+        if self.score != other.score:
+            return self.score < other.score
+        return self.username < other.username
     def __gt__(self, other):
-        return self.score > other.score
+        if self.score != other.score:
+            return self.score > other.score
+        return self.username > other.username
     def __eq__(self, other):
-        return self.score == other.score
+        return self.score == other.score and self.username == other.username
     def __str__(self):
         return f"{self.username}: {self.score}"
     def __repr__(self):
@@ -39,11 +38,18 @@ class LeaderboardEntry:
  
  
 class Leaderboard:
-    def __init__(self):
+    def __init__(self, metric_weights=None):
         self.tree = BinarySearchTree()
         # HashTable: username -> LeaderboardEntry
         # Lets us update a player's score in O(1) without scanning the BST
         self._entries = HashTable()
+        # HashTable: username -> {metric_name: value}
+        self._metrics = HashTable()
+        # Dict of metric_name -> weight used for score calculation.
+        # Example: {"wins": 100, "time_played_seconds": 0.1, "chats_sent": 2}
+        self._metric_weights = {}
+        if metric_weights is not None:
+            self.set_metric_weights(metric_weights)
  
     def add_score(self, username, score):
         # If player already has a score, remove the old entry from the BST
@@ -52,6 +58,70 @@ class Leaderboard:
         entry = LeaderboardEntry(username, score)
         self.tree.insert(entry)
         self._entries[username] = entry
+
+    def set_metric_weights(self, metric_weights):
+        """
+        Configure how each metric contributes to the final score.
+        metric_weights should be a dict-like object: {metric_name: weight}
+        """
+        self._metric_weights = {}
+        for metric_name, weight in metric_weights.items():
+            self._metric_weights[metric_name] = float(weight)
+
+    def record_metric(self, username, metric_name, amount=1, recompute_score=True):
+        """
+        Increment one metric for a player.
+        This is the main method games should call when events happen.
+        """
+        if username not in self._metrics:
+            self._metrics[username] = {}
+        metrics = self._metrics[username]
+        current = metrics.get(metric_name, 0)
+        metrics[metric_name] = current + amount
+        if recompute_score:
+            self.recalculate_score(username)
+
+    def set_metric(self, username, metric_name, value, recompute_score=True):
+        """
+        Set a metric to an exact value (instead of incrementing).
+        Useful for values like total_time_seconds pulled from game state.
+        """
+        if username not in self._metrics:
+            self._metrics[username] = {}
+        metrics = self._metrics[username]
+        metrics[metric_name] = value
+        if recompute_score:
+            self.recalculate_score(username)
+
+    def get_player_metrics(self, username):
+        """
+        Return a copy of a player's metrics dictionary.
+        """
+        if username not in self._metrics:
+            return {}
+        metrics = self._metrics[username]
+        return dict(metrics)
+
+    def calculate_score_from_metrics(self, username):
+        """
+        Compute weighted score using configured metric weights.
+        Metrics with no configured weight default to weight 0.
+        """
+        if username not in self._metrics:
+            return 0
+        metrics = self._metrics[username]
+        total = 0
+        for metric_name, value in metrics.items():
+            weight = self._metric_weights.get(metric_name, 0)
+            total += value * weight
+        return total
+
+    def recalculate_score(self, username):
+        """
+        Recompute a player's score from tracked metrics and update leaderboard.
+        """
+        score = self.calculate_score_from_metrics(username)
+        self.add_score(username, score)
  
     def _get_sorted(self):
         """
