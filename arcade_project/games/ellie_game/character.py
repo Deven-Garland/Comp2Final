@@ -65,6 +65,9 @@ class Character(pygame.sprite.Sprite):
         self.is_local = is_local
         self.name = ""
         self.other_players = []
+
+        # FIX: flag to suppress keyboard input when chat is focused
+        self.input_enabled = True
         
         # For smooth network interpolation (remote players only)
         if not is_local:
@@ -106,7 +109,13 @@ class Character(pygame.sprite.Sprite):
         """Handle input - only for local player"""
         if not self.is_local:
             return
-            
+
+        # FIX: suppress all game input when chat box is focused
+        if not self.input_enabled:
+            self.direction.x = 0
+            self.direction.y = 0
+            return
+
         if not self.attacking:
             keys = pygame.key.get_pressed()
 

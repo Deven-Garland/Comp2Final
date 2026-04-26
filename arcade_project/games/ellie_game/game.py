@@ -54,6 +54,7 @@ class EllieGame:
         self._leave_btn = None
         self._start_time = None
         self._session_stats = {}
+        self.chat_focused = False  # FIX: set by arcade_client each frame
         self._setup_character_select()
 
     def _setup_character_select(self):
@@ -114,6 +115,20 @@ class EllieGame:
         self._start_time = time.time()
         self.state = "play"
 
+    def cleanup(self):
+        """
+        Disconnect from the C++ game server cleanly.
+        Call this before discarding the EllieGame instance so the server
+        removes the player instead of leaving a ghost.
+        """
+        if self.level and hasattr(self.level, 'network') and self.level.network:
+            try:
+                self.level.network.disconnect()
+            except Exception as e:
+                print(f"[ellie_game] disconnect error: {e}")
+            self.level.network = None
+        self.level = None
+
     def _collect_stats(self):
         """Grab stats from the level before leaving."""
         if self.level:
@@ -148,6 +163,7 @@ class EllieGame:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self._leave_btn and self._leave_btn.collidepoint(event.pos):
                     self._collect_stats()
+                    self.cleanup()  # FIX: disconnect from C++ server before leaving
                     self.state = "stats"
                     return
             self.level.handle_events([event])
@@ -177,6 +193,8 @@ class EllieGame:
 
     def update(self, dt: float) -> None:
         if self.state == "play" and self.level:
+            # FIX: suppress player input while chat is focused
+            self.level.player.input_enabled = not self.chat_focused
             self.level.player.update()
             for other in self.level.other_players.values():
                 other.update()

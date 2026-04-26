@@ -95,12 +95,18 @@ class PlatformServer:
 
     def send_message(self, game_id, username, text):
         self.chat.send_message(game_id, username, text)
-        # Track message count per user
         self.accounts.add_message(username)
         return True
 
     def get_chat(self, game_id):
-        return self.chat.get_messages(game_id)
+        # FIX: return proper dicts so the client can read sender/message/time
+        messages = self.chat.get_messages(game_id)
+        return {
+            "messages": [
+                {"sender": m.sender, "message": m.text, "time": m.timestamp}
+                for m in messages
+            ]
+        }
 
     def end_game(self, game_id, players, winner, score):
         self.history.add_match(game_id, players, winner)
