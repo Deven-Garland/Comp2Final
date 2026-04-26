@@ -36,6 +36,7 @@ from datastructures.hash_table import HashTable
 DEFAULT_HOST = os.getenv("PLATFORM_SERVER_HOST", "127.0.0.1")
 DEFAULT_PORT = int(os.getenv("PLATFORM_SERVER_PORT", "50072"))
 DEFAULT_PLAYERS_PER_MATCH = int(os.getenv("PLATFORM_PLAYERS_PER_MATCH", "2"))
+DEFAULT_MAX_PLAYERS_PER_INSTANCE = int(os.getenv("PLATFORM_MAX_PLAYERS_PER_INSTANCE", "30"))
 DEFAULT_GAME_HOST = os.getenv("PLATFORM_GAME_HOST", "127.0.0.1")
 GAME_SERVER_ENV = os.getenv("PLATFORM_GAME_SERVERS", "")
 
@@ -55,8 +56,10 @@ class PlatformServer:
         self.game_connector = GameConnector(self.games)
         self.ratings = Ratings(sorted(self.games.game_servers.keys()))
         self.players_per_match = players_per_match
+        self.max_players_per_instance = DEFAULT_MAX_PLAYERS_PER_INSTANCE
         self.next_game_id = 1
         self.active_game_id = None
+        self.instance_player_counts = {}
         # Separate leaderboards/counters per game + stat.
         # Example board names: "ellie:deaths", "deven:disconnects", "global:score".
         self.game_leaderboards = HashTable()
@@ -105,17 +108,28 @@ class PlatformServer:
         return True
 
     def try_create_match(self):
-        players = self.matchmaking.match_players(1)
+        players = self.matchmaking.match_players(self.players_per_match)
         if len(players) == 0:
             return None
-        if self.active_game_id is not None:
-            game_id = self.active_game_id
-        else:
-            game_id = self.next_game_id
-            self.next_game_id += 1
-            self.chat.start_session(game_id)
-            self.active_game_id = game_id
+        game_id = self._get_or_create_available_instance(len(players))
+        self.instance_player_counts[game_id] = self.instance_player_counts.get(game_id, 0) + len(players)
         return {"game_id": game_id, "players": players}
+
+    def _get_or_create_available_instance(self, incoming_players):
+        """
+        Reuse current instance until it reaches max capacity, then open new one.
+        """
+        if self.active_game_id is not None:
+            current_count = self.instance_player_counts.get(self.active_game_id, 0)
+            if current_count + incoming_players <= self.max_players_per_instance:
+                return self.active_game_id
+
+        game_id = self.next_game_id
+        self.next_game_id += 1
+        self.chat.start_session(game_id)
+        self.instance_player_counts[game_id] = 0
+        self.active_game_id = game_id
+        return game_id
 
     def list_games(self):
         return self.games.list_games()
@@ -143,6 +157,17 @@ class PlatformServer:
             ]
         }
 
+    def instance_status(self, game_id):
+        """
+        Return occupancy for a game instance so clients can show X/30 connections.
+        """
+        current = self.instance_player_counts.get(game_id, 0)
+        return {
+            "game_id": game_id,
+            "current_players": current,
+            "max_players": self.max_players_per_instance,
+        }
+
     def end_game(self, game_id, players, winner, score, game="global"):
         self.history.add_match(game_id, players, winner)
         self.leaderboard.add_score(winner, score)
@@ -155,9 +180,15 @@ class PlatformServer:
                 score=score if player == winner else 0,
                 play_time=0,
             )
-        self.chat.end_session(game_id)
-        if self.active_game_id == game_id:
-            self.active_game_id = None
+        if game_id in self.instance_player_counts:
+            remaining = self.instance_player_counts.get(game_id, 0) - len(players)
+            if remaining <= 0:
+                self.instance_player_counts.pop(game_id, None)
+                self.chat.end_session(game_id)
+                if self.active_game_id == game_id:
+                    self.active_game_id = None
+            else:
+                self.instance_player_counts[game_id] = remaining
         return True
 
     def _get_or_create_board(self, board_name):
@@ -354,7 +385,7 @@ class RequestDispatcher:
     allowed_methods = (
         "register", "login", "join_queue", "try_create_match",
         "list_games", "get_game_server", "send_game_request",
-        "send_message", "get_chat", "end_game", "top_players",
+        "send_message", "get_chat", "instance_status", "end_game", "top_players",
         "player_history", "set_favorite", "get_favorite",
         "add_minutes", "get_minutes", "get_messages_sent",
         "player_disconnected", "player_died",

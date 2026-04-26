@@ -612,6 +612,8 @@ class PlaySessionScreen:
         self.on_send_chat = on_send_chat
         self.on_leave = on_leave
         self.chat_lines: List[ChatLine] = []
+        self.connection_count = 0
+        self.connection_limit = 30
         self._chat_scroll = 0
         split = int(rect.width * 0.62)
         self._game_rect = pygame.Rect(rect.x, rect.y, split, rect.height)
@@ -656,6 +658,10 @@ class PlaySessionScreen:
         self.chat_lines.clear()
         self._chat_scroll = 0
 
+    def set_connection_status(self, current_players: int, max_players: int) -> None:
+        self.connection_count = int(current_players)
+        self.connection_limit = int(max_players)
+
     def game_subsurface(self, surface: pygame.Surface) -> pygame.Surface:
         return surface.subsurface(self._game_rect)
 
@@ -697,6 +703,12 @@ class PlaySessionScreen:
         pygame.draw.rect(surface, COLORS["panel_light"], self._chat_rect)
         ct = BODY_FONT.render("Chat", True, COLORS["accent"])
         surface.blit(ct, (self._chat_rect.x + 12, self._chat_rect.y + 16))
+        conn_text = SMALL_FONT.render(
+            f"Connections: {self.connection_count}/{self.connection_limit}",
+            True,
+            COLORS["text_dim"],
+        )
+        surface.blit(conn_text, (self._chat_rect.x + 12, self._chat_rect.y + 30))
         sid = SMALL_FONT.render(f"Session: {self.session_id[:16]}…", True, COLORS["text_dim"])
         surface.blit(sid, (self._chat_rect.x + 12, self._chat_rect.y + 44))
 

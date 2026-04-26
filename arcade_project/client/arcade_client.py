@@ -366,6 +366,14 @@ class ArcadeClient:
             except Exception as e:
                 print(f"[poll chat] {e}")
 
+            try:
+                status = self._conn.get_instance_status(self._session_id)
+                current_players = status.get("current_players", 0)
+                max_players = status.get("max_players", 30)
+                self._play.set_connection_status(current_players, max_players)
+            except Exception as e:
+                print(f"[poll instance status] {e}")
+
     def run(self) -> None:
         self._running = True
         poll_timer = 0.0

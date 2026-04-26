@@ -12,6 +12,7 @@ from pathlib import Path
 
 ECE_HOST = "ece-000.eng.temple.edu"
 PLATFORM_PORT = 50070
+CPP_GAME_PORT = 50072
 SCRIPT_DIR = Path(__file__).resolve().parent
 CPP_DIR = SCRIPT_DIR / "arcade_project" / "cpp_server"
 LOG_DIR = SCRIPT_DIR / "logs"
@@ -23,6 +24,7 @@ print("   MOSFET Arcade - Server Start")
 print("======================================")
 print(f"Host: {ECE_HOST}")
 print(f"Platform port: {PLATFORM_PORT}")
+print(f"C++ game port: {CPP_GAME_PORT}")
 print()
 
 # 1. Build C++ game server
@@ -38,25 +40,24 @@ if result.returncode != 0:
     sys.exit(1)
 print("      Done.")
 
-# 2. Start C++ game servers
-print("[2/3] Starting C++ game servers...")
+# 2. Start C++ gameplay server (single shared gameplay port)
+print("[2/3] Starting C++ gameplay server...")
 binary = CPP_DIR / "server_text"
 cpp_pids = []
 
 subprocess.run(["pkill", "-f", "server_text"], capture_output=True)
 time.sleep(0.3)
 
-for game in ("mennah", "deven", "ellie", "vraj", "kimberly"):
-    log = open(LOG_DIR / f"{game}.log", "a")
-    proc = subprocess.Popen(
-        ["nohup", str(binary), "--game", game],
-        cwd=CPP_DIR,
-        stdout=log,
-        stderr=log,
-    )
-    cpp_pids.append(proc.pid)
-    print(f"      {game} -> PID {proc.pid}")
-    time.sleep(0.12)
+cpp_log = open(LOG_DIR / "cpp_game_server.log", "a")
+proc = subprocess.Popen(
+    ["nohup", str(binary), "--port", str(CPP_GAME_PORT)],
+    cwd=CPP_DIR,
+    stdout=cpp_log,
+    stderr=cpp_log,
+)
+cpp_pids.append(proc.pid)
+print(f"      shared gameplay server -> PID {proc.pid}")
+time.sleep(0.2)
 
 (LOG_DIR / "cpp_pids.txt").write_text("\n".join(str(p) for p in cpp_pids))
 print("      Done.")

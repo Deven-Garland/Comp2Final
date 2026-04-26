@@ -182,6 +182,12 @@ class ServerConnection:
             return resp.get("data") or []
         return []
 
+    def get_instance_status(self, session_id):
+        resp = self._request("instance_status", {"game_id": int(session_id)})
+        if resp.get("status") == "ok":
+            return resp.get("data") or {}
+        return {}
+
     # --- Session -----------------------------------------------------------
 
     def leave_session(self, session_id):
