@@ -343,11 +343,15 @@ class ArcadeClient:
     def _poll_server(self) -> None:
         if self._current == AppScreen.QUEUE:
             try:
-                resp = self._conn._request("try_create_match", {})
+                resp = self._conn._request("try_create_match", {"username": self._username})
                 if resp.get("status") == "ok":
                     data = resp.get("data") or {}
                     session_id = data.get("game_id") if isinstance(data, dict) else None
                     if session_id:
+                        try:
+                            self._conn._request("acknowledge_match", {"username": self._username})
+                        except Exception:
+                            pass
                         self._on_match_found(str(session_id))
             except Exception as e:
                 print(f"[poll queue] {e}")
