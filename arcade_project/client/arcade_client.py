@@ -32,8 +32,8 @@ WINDOW_W = 1024
 WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
-SERVER_HOST = os.environ.get("ARCADE_PLATFORM_HOST", "ece-000.eng.temple.edu")
-SERVER_PORT = int(os.environ.get("ARCADE_PLATFORM_PORT", "50070"))
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 9000
 
 GAME_LIST = [
     GameInfo("deven",    "Deven's Game",    "Fast reflex mini-game"),
@@ -343,11 +343,15 @@ class ArcadeClient:
     def _poll_server(self) -> None:
         if self._current == AppScreen.QUEUE:
             try:
-                resp = self._conn._request("try_create_match", {})
+                resp = self._conn._request("try_create_match", {"username": self._username})
                 if resp.get("status") == "ok":
                     data = resp.get("data") or {}
                     session_id = data.get("game_id") if isinstance(data, dict) else None
                     if session_id:
+                        try:
+                            self._conn._request("acknowledge_match", {"username": self._username})
+                        except Exception:
+                            pass
                         self._on_match_found(str(session_id))
             except Exception as e:
                 print(f"[poll queue] {e}")

@@ -1,51 +1,71 @@
 """
-player_search.py - Lightweight player directory + prefix search
+player_search.py - Prefix-based player search index
 
-Keeps a simple in-memory index for username lookup and profile retrieval.
+Author: Ellie Lutz
+Date: Spring 2026
+Lab: Final Project - Player Search
 """
 
 from datastructures.hash_table import HashTable
+from datastructures.array import ArrayList
 
 
 class PlayerSearch:
     def __init__(self):
-        # username -> {"username": str, "display_name": str, "profile": dict}
-        self._players = HashTable()
+        self._profiles = HashTable()
+        self._sorted_names = ArrayList()
 
     def register(self, username, display_name, profile):
-        """
-        Add or update a player record in the search index.
-        """
-        self._players[username] = {
-            "username": username,
-            "display_name": display_name,
-            "profile": profile or {},
-        }
+        self._profiles[username] = profile
+        if not self._contains_name(username):
+            self._sorted_insert(username)
+
+    def _contains_name(self, username):
+        for i in range(len(self._sorted_names)):
+            if self._sorted_names[i] == username:
+                return True
+        return False
+
+    def _sorted_insert(self, username):
+        lo, hi = 0, len(self._sorted_names)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if self._sorted_names[mid] < username:
+                lo = mid + 1
+            else:
+                hi = mid
+        self._sorted_names.insert(lo, username)
+
+    def _bisect_left(self, prefix):
+        lo, hi = 0, len(self._sorted_names)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if self._sorted_names[mid] < prefix:
+                lo = mid + 1
+            else:
+                hi = mid
+        return lo
 
     def search_prefix(self, prefix):
-        """
-        Return players whose usernames start with prefix (case-insensitive).
-        """
-        if prefix is None:
-            prefix = ""
-        prefix_lower = str(prefix).lower()
-        matches = []
-        for username in self._players:
-            if str(username).lower().startswith(prefix_lower):
-                entry = self._players[username]
-                matches.append(
-                    {
-                        "username": entry["username"],
-                        "display_name": entry["display_name"],
-                    }
-                )
-        matches.sort(key=lambda item: item["username"].lower())
-        return matches
+        if not prefix:
+            return []
+        prefix = prefix.lower()
+        results = []
+        i = self._bisect_left(prefix)
+        while i < len(self._sorted_names):
+            name = self._sorted_names[i]
+            if not name.lower().startswith(prefix):
+                break
+            profile = self._profiles[name]
+            if profile is not None:
+                results.append(profile)
+            i += 1
+        return results
 
     def get_profile(self, username):
-        """
-        Return the stored profile dictionary for a username.
-        """
-        if username not in self._players:
+        if username not in self._profiles:
             return None
-        return self._players[username]["profile"]
+        return self._profiles[username]
+
+    def __len__(self):
+        return len(self._sorted_names)

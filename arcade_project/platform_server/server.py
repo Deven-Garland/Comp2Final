@@ -28,13 +28,13 @@ from platform_server.data_ingest import DataIngest
 from platform_server.history import History
 from platform_server.leaderboard import Leaderboard
 from platform_server.matchmaking import Matchmaking
-from platform_server.player_search import PlayerSearch
+from .player_search import PlayerSearch
 from platform_server.ratings import Ratings
 from datastructures.hash_table import HashTable
 
 
 DEFAULT_HOST = os.getenv("PLATFORM_SERVER_HOST", "127.0.0.1")
-DEFAULT_PORT = int(os.getenv("PLATFORM_SERVER_PORT", "50072"))
+DEFAULT_PORT = int(os.getenv("PLATFORM_SERVER_PORT", "50070"))
 DEFAULT_PLAYERS_PER_MATCH = int(os.getenv("PLATFORM_PLAYERS_PER_MATCH", "2"))
 DEFAULT_MAX_PLAYERS_PER_INSTANCE = int(os.getenv("PLATFORM_MAX_PLAYERS_PER_INSTANCE", "30"))
 DEFAULT_GAME_HOST = os.getenv("PLATFORM_GAME_HOST", "127.0.0.1")
@@ -60,7 +60,8 @@ class PlatformServer:
         self.max_players_per_instance = DEFAULT_MAX_PLAYERS_PER_INSTANCE
         self.next_game_id = 1
         self.active_game_id = None
-        self.instance_player_counts = {}
+        self.instance_player_counts = HashTable()  # game_id -> int player count
+        self.pending_matches = HashTable()  # username -> game_id, cleared when player acknowledges
         # Separate leaderboards/counters per game + stat.
         # Example board names: "ellie:deaths", "deven:disconnects", "global:score".
         self.game_leaderboards = HashTable()
@@ -191,21 +192,35 @@ class PlatformServer:
         self.matchmaking.join_queue(username)
         return True
 
-    def try_create_match(self):
+    def try_create_match(self, username=None):
+        # If this player already has a pending match, return it
+        if username and username in self.pending_matches:
+            game_id = self.pending_matches[username]
+            return {"game_id": game_id, "players": [username]}
+
         players = self.matchmaking.match_players(self.players_per_match)
         if len(players) == 0:
             return None
         game_id = self._get_or_create_available_instance(len(players))
-        self.instance_player_counts[game_id] = self.instance_player_counts.get(game_id, 0) + len(players)
+        current = self.instance_player_counts[game_id] if game_id in self.instance_player_counts else 0
+        self.instance_player_counts[game_id] = current + len(players)
+        # store pending match for every matched player so all their polls succeed
+        for p in players:
+            self.pending_matches[p] = game_id
         self._save_runtime_state()
         return {"game_id": game_id, "players": players}
+
+    def acknowledge_match(self, username):
+        """Call after a client has received and stored the match — clears the pending entry."""
+        if username in self.pending_matches:
+            self.pending_matches.remove(username)
 
     def _get_or_create_available_instance(self, incoming_players):
         """
         Reuse current instance until it reaches max capacity, then open new one.
         """
         if self.active_game_id is not None:
-            current_count = self.instance_player_counts.get(self.active_game_id, 0)
+            current_count = self.instance_player_counts[self.active_game_id] if self.active_game_id in self.instance_player_counts else 0
             if current_count + incoming_players <= self.max_players_per_instance:
                 return self.active_game_id
 
@@ -247,7 +262,7 @@ class PlatformServer:
         """
         Return occupancy for a game instance so clients can show X/30 connections.
         """
-        current = self.instance_player_counts.get(game_id, 0)
+        current = self.instance_player_counts[game_id] if game_id in self.instance_player_counts else 0
         return {
             "game_id": game_id,
             "current_players": current,
@@ -267,9 +282,10 @@ class PlatformServer:
                 play_time=0,
             )
         if game_id in self.instance_player_counts:
-            remaining = self.instance_player_counts.get(game_id, 0) - len(players)
+            current = self.instance_player_counts[game_id]
+            remaining = current - len(players)
             if remaining <= 0:
-                self.instance_player_counts.pop(game_id, None)
+                self.instance_player_counts.remove(game_id)
                 self.chat.end_session(game_id)
                 if self.active_game_id == game_id:
                     self.active_game_id = None
@@ -480,7 +496,7 @@ class GameConnector:
 
 class RequestDispatcher:
     allowed_methods = (
-        "register", "login", "join_queue", "try_create_match",
+        "register", "login", "join_queue", "try_create_match", "acknowledge_match",
         "list_games", "get_game_server", "send_game_request",
         "send_message", "get_chat", "instance_status", "end_game", "top_players",
         "player_history", "set_favorite", "get_favorite",
