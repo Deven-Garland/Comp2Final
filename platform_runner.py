@@ -10,7 +10,7 @@ from arcade_project.platform_server.server import run_server
 
 run_server(
     host="0.0.0.0",
-    port=9000,
+    port=50070,
     players_per_match=1,
     game_servers=[
         ("mennah",   "ece-000.eng.temple.edu", 50063),
