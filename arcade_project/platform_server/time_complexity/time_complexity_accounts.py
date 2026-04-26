@@ -4,11 +4,9 @@ import time
 import random
 import matplotlib.pyplot as plt
 
-# Go one folder up from time_complexity to platform_server
 current_folder = os.path.dirname(os.path.abspath(__file__))
 platform_server_folder = os.path.dirname(current_folder)
 
-# Let Python import accounts.py, history.py, etc.
 sys.path.insert(0, platform_server_folder)
 
 from accounts import Accounts
