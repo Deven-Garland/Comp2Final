@@ -30,15 +30,9 @@ WINDOW_W = 1024
 WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
-<<<<<<< HEAD
+import os
 SERVER_HOST = os.environ.get("ARCADE_PLATFORM_HOST", "ece-000.eng.temple.edu")
-SERVER_PORT = int(os.environ.get("ARCADE_PLATFORM_PORT", "50070"))
-=======
-SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 9000
-
->>>>>>> 4d76bdd2139aedf1c1094e1c4e69e33b8832023d
-GAME_LIST = [
+SERVER_PORT = int(os.environ.get("ARCADE_PLATFORM_PORT", "50070"))GAME_LIST = [
     GameInfo("deven",    "Deven's Game",    "Fast reflex mini-game"),
     GameInfo("ellie",    "Ellie's Game",    "Puzzle challenge"),
     GameInfo("kimberly", "Kimberly's Game", "Score attack"),
