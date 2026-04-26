@@ -3,9 +3,8 @@ client.py - Arcade client entry point
 
 Run:  python3 client.py
 
-Teammates on their laptops just run: python3 client.py
-It automatically connects to the platform server on the ECE machine.
-The person running the ECE server runs: python3 start.py
+Run this on your laptop after the remote platform/game servers are up.
+Use SSH port forwarding so localhost points to your ECE-hosted server ports.
 
 Authors: Team MOSFET
 Date: Spring 2026

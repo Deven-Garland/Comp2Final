@@ -1,4 +1,4 @@
-# platform_runner.py - launched by start.py to run the platform server
+# platform_runner.py - run platform server with fixed game registry
 import sys
 from pathlib import Path
 

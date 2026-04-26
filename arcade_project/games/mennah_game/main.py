@@ -137,7 +137,7 @@ class CharacterCard:
 
 
 class Game:
-    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='text'):
+    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='json'):
         # general setup
         pygame.init()
         self.screen = pygame.display.set_mode((WIDTH, HEIGTH))
@@ -308,9 +308,9 @@ if __name__ == '__main__':
                        help='Server hostname (default: localhost)')
     parser.add_argument('--port', type=int, default=8080, 
                        help='Server port (default: 8080)')
-    parser.add_argument('--serializer', choices=['text', 'json', 'binary'], 
-                       default='text',
-                       help='Serialization format: text (default), json, or binary')
+    parser.add_argument('--serializer', choices=['json'], 
+                       default='json',
+                       help='Serialization format: json')
     
     args = parser.parse_args()
     
