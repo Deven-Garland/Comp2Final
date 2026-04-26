@@ -32,8 +32,8 @@ WINDOW_W = 1024
 WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
-SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 9000
+SERVER_HOST = "18.208.36.230"
+SERVER_PORT = 50064
 
 GAME_LIST = [
     GameInfo("deven",    "Deven's Game",    "Fast reflex mini-game"),
