@@ -1,8 +1,25 @@
+import os
+import sys
 import time
 import random
 import matplotlib.pyplot as plt
 
-from platform_server.ratings import Ratings
+
+current_folder = os.path.dirname(os.path.abspath(__file__))
+
+
+platform_server_folder = os.path.dirname(current_folder)
+
+
+project_folder = os.path.dirname(platform_server_folder)
+
+
+sys.path.insert(0, project_folder)
+
+
+sys.path.insert(0, platform_server_folder)
+
+from ratings import Ratings
 
 
 def build_ratings(n, ratings_per_game):
