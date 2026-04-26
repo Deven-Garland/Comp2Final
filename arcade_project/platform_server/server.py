@@ -39,6 +39,7 @@ DEFAULT_PLAYERS_PER_MATCH = int(os.getenv("PLATFORM_PLAYERS_PER_MATCH", "2"))
 DEFAULT_MAX_PLAYERS_PER_INSTANCE = int(os.getenv("PLATFORM_MAX_PLAYERS_PER_INSTANCE", "30"))
 DEFAULT_GAME_HOST = os.getenv("PLATFORM_GAME_HOST", "127.0.0.1")
 GAME_SERVER_ENV = os.getenv("PLATFORM_GAME_SERVERS", "")
+RUNTIME_STATE_FILE = Path(__file__).with_name("runtime_state.json")
 
 REQUEST_TYPE_KEYS = ("type", "action")
 RESERVED_REQUEST_KEYS = (*REQUEST_TYPE_KEYS, "request_id", "params")
@@ -68,6 +69,7 @@ class PlatformServer:
 
         self.data_ingest = DataIngest(self.accounts, self.leaderboard, self.catalog)
         self.data_ingest.load_data()
+        self._load_runtime_state()
 
         # Build player search index from all loaded accounts
         self.player_search = PlayerSearch()
@@ -84,6 +86,87 @@ class PlatformServer:
                 }
                 self.player_search.register(username, username, profile)
 
+    def _serialize_game_counters(self):
+        data = {}
+        for board_name in self.game_counters:
+            counters = self.game_counters[board_name]
+            data[board_name] = {}
+            for username in counters:
+                data[board_name][username] = counters[username]
+        return data
+
+    def _serialize_history(self):
+        data = {}
+        for username in self.history.history:
+            matches = self.history.history[username]
+            rows = []
+            i = 0
+            while i < len(matches):
+                match = matches[i]
+                rows.append(
+                    {
+                        "game_id": match.game_id,
+                        "players": list(match.players),
+                        "winner": match.winner,
+                    }
+                )
+                i += 1
+            data[username] = rows
+        return data
+
+    def _save_runtime_state(self):
+        payload = {
+            "next_game_id": self.next_game_id,
+            "active_game_id": self.active_game_id,
+            "instance_player_counts": self.instance_player_counts,
+            "game_counters": self._serialize_game_counters(),
+            "history": self._serialize_history(),
+        }
+        try:
+            with open(RUNTIME_STATE_FILE, "w", encoding="utf-8") as file:
+                json.dump(payload, file, indent=2)
+        except Exception as error:
+            print(f"[platform] Could not save runtime state: {error}")
+
+    def _load_runtime_state(self):
+        if not RUNTIME_STATE_FILE.exists():
+            return
+        try:
+            with open(RUNTIME_STATE_FILE, "r", encoding="utf-8") as file:
+                payload = json.load(file)
+        except Exception as error:
+            print(f"[platform] Could not load runtime state: {error}")
+            return
+
+        self.next_game_id = int(payload.get("next_game_id", self.next_game_id))
+        active_game_id = payload.get("active_game_id")
+        self.active_game_id = int(active_game_id) if active_game_id is not None else None
+
+        raw_counts = payload.get("instance_player_counts", {})
+        self.instance_player_counts = {
+            int(game_id): int(count) for game_id, count in raw_counts.items()
+        }
+
+        # Restore per-board counters and rebuild corresponding leaderboard entries.
+        self.game_counters = HashTable()
+        self.game_leaderboards = HashTable()
+        for board_name, raw_counter in payload.get("game_counters", {}).items():
+            counters = HashTable()
+            for username, score in raw_counter.items():
+                numeric_score = int(score)
+                counters[username] = numeric_score
+                self._set_board_score(board_name, username, numeric_score)
+            self.game_counters[board_name] = counters
+
+        # Restore match history.
+        for username, matches in payload.get("history", {}).items():
+            for match in matches:
+                self.history.add_match(
+                    match.get("game_id"),
+                    match.get("players", []),
+                    match.get("winner"),
+                )
+
     def register(self, username, password):
         result = self.accounts.register(username, password)
         # Add new player to search index when they register
@@ -97,6 +180,7 @@ class PlatformServer:
                 "messages_sent": 0,
             }
             self.player_search.register(username, username, profile)
+            self._save_runtime_state()
         return result
 
     def login(self, username, password):
@@ -123,6 +207,7 @@ class PlatformServer:
         # store pending match for every matched player so all their polls succeed
         for p in players:
             self.pending_matches[p] = game_id
+        self._save_runtime_state()
         return {"game_id": game_id, "players": players}
 
     def acknowledge_match(self, username):
@@ -160,6 +245,7 @@ class PlatformServer:
         self.accounts.add_message(username)
         self._increment_board_score(f"{game}:chats", username, 1)
         self._increment_board_score("global:chats", username, 1)
+        self._save_runtime_state()
         return True
 
     def get_chat(self, game_id):
@@ -205,6 +291,7 @@ class PlatformServer:
                     self.active_game_id = None
             else:
                 self.instance_player_counts[game_id] = remaining
+        self._save_runtime_state()
         return True
 
     def _get_or_create_board(self, board_name):
@@ -261,18 +348,21 @@ class PlatformServer:
             self._increment_board_score(f"{game}:deaths", username, deaths_delta)
         if disconnects_delta:
             self._increment_board_score(f"{game}:disconnects", username, disconnects_delta)
+        self._save_runtime_state()
         return True
 
     def player_disconnected(self, username, game="global"):
         if not self.accounts.exists(username):
             return False
         self._increment_board_score(f"{game}:disconnects", username, 1)
+        self._save_runtime_state()
         return True
 
     def player_died(self, username, game="global"):
         if not self.accounts.exists(username):
             return False
         self._increment_board_score(f"{game}:deaths", username, 1)
+        self._save_runtime_state()
         return True
 
     def top_players(self, k, game=None, stat=None):
@@ -316,7 +406,10 @@ class PlatformServer:
     # --- Favorite game -----------------------------------------------------
 
     def set_favorite(self, username, game_id):
-        return self.accounts.set_favorite(username, game_id)
+        result = self.accounts.set_favorite(username, game_id)
+        if result:
+            self._save_runtime_state()
+        return result
 
     def get_favorite(self, username):
         return self.accounts.get_favorite(username)
@@ -324,7 +417,10 @@ class PlatformServer:
     # --- Minutes played ----------------------------------------------------
 
     def add_minutes(self, username, minutes):
-        return self.accounts.add_minutes(username, minutes)
+        result = self.accounts.add_minutes(username, minutes)
+        if result:
+            self._save_runtime_state()
+        return result
 
     def get_minutes(self, username):
         return self.accounts.get_minutes(username)
@@ -336,6 +432,7 @@ class PlatformServer:
 
     def rate_game(self, game_name, stars):
         self.ratings.rate(game_name, int(stars))
+        self._save_runtime_state()
         return True
 
     def get_rating_rankings(self):

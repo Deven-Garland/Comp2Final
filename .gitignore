@@ -9,6 +9,7 @@ arcade_project/cpp_server/obj_text/
 arcade_project/cpp_server/obj_json/
 arcade_project/cpp_server/obj_binary/
 arcade_project/cpp_server/logs/
+logs/
 
 # Python
 __pycache__/
