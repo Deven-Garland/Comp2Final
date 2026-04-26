@@ -475,4 +475,5 @@ Press Ctrl+C to stop.
 
 [STATUS] rooms=0 total_players=0
 
-[STATUS] rooms=0 total_playe
+[STATUS] rooms=0 total_playenohup: ignoring input
+nohup: ignoring input

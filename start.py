@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 ECE_HOST = "ece-000.eng.temple.edu"
-PLATFORM_PORT = 9000
+PLATFORM_PORT = 50070
 SCRIPT_DIR = Path(__file__).resolve().parent
 CPP_DIR = SCRIPT_DIR / "arcade_project" / "cpp_server"
 LOG_DIR = SCRIPT_DIR / "logs"
@@ -70,6 +70,7 @@ time.sleep(0.2)
 env = {
     **os.environ,
     "PYTHONPATH": f"{SCRIPT_DIR}:{SCRIPT_DIR / 'arcade_project'}:" + os.environ.get("PYTHONPATH", ""),
+    "PYTHONUNBUFFERED": "1",
 }
 
 platform_log = open(LOG_DIR / "platform.log", "w")
