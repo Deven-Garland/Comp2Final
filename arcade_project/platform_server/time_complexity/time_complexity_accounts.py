@@ -6,8 +6,11 @@ import matplotlib.pyplot as plt
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 platform_server_folder = os.path.dirname(current_folder)
+project_folder = os.path.dirname(platform_server_folder)
+game_folder = os.path.join(project_folder, "code", "game")
 
 sys.path.insert(0, platform_server_folder)
+sys.path.insert(0, game_folder)
 
 from accounts import Accounts
 
