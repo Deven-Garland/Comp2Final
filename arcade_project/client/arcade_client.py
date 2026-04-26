@@ -114,9 +114,23 @@ class ArcadeClient:
             AppScreen.PLAY:    self._play,
         }[self._current]
 
+    def _ensure_connected(self) -> bool:
+        if self._connected:
+            return True
+        try:
+            self._conn.disconnect()
+            self._conn.connect()
+            self._connected = True
+            return True
+        except Exception as e:
+            self._login.set_status(f"Could not reach server: {e}", error=True)
+            return False
+
     def _handle_login(self, username: str, password: str) -> None:
         if not username or not password:
             self._login.set_status("Enter a username and password.", error=True)
+            return
+        if not self._ensure_connected():
             return
         try:
             resp = self._conn.login(username, password)
@@ -128,11 +142,14 @@ class ArcadeClient:
             else:
                 self._login.set_status("Invalid username or password.", error=True)
         except Exception as e:
+            self._connected = False
             self._login.set_status(f"Server error: {e}", error=True)
 
     def _handle_register(self, username: str, password: str) -> None:
         if not username or not password:
             self._login.set_status("Enter a username and password.", error=True)
+            return
+        if not self._ensure_connected():
             return
         try:
             resp = self._conn.register(username, password)
@@ -144,6 +161,7 @@ class ArcadeClient:
             else:
                 self._login.set_status("Username already taken.", error=True)
         except Exception as e:
+            self._connected = False
             self._login.set_status(f"Server error: {e}", error=True)
 
     def _load_favorite(self) -> None:
@@ -175,10 +193,7 @@ class ArcadeClient:
             except Exception:
                 pass
         self._conn.disconnect()
-        try:
-            self._conn.connect()
-        except Exception:
-            pass
+        self._connected = False
         self._username = ""
         if self._ellie_game is not None:
             try:
@@ -281,8 +296,6 @@ class ArcadeClient:
             except Exception:
                 pass
 
-        # FIX: tell the platform server the game is over so the session is
-        # cleared and a new player joining doesn't land in the ghost session
         if self._session_id:
             try:
                 self._conn._request("end_game", {
@@ -375,8 +388,8 @@ class ArcadeClient:
                 current_players = status.get("current_players", 0)
                 max_players = status.get("max_players", 30)
                 self._play.set_connection_status(current_players, max_players)
-            except Exception as e:
-                print(f"[poll instance status] {e}")
+            except Exception:
+                pass
 
     def run(self) -> None:
         self._running = True
@@ -386,11 +399,6 @@ class ArcadeClient:
         while self._running:
             dt = self._clock.tick(FPS) / 1000.0
             active = self._active_screen()
-
-            chat_focused = (
-                self._current == AppScreen.PLAY and
-                self._play.chat_input_focused
-            )
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:

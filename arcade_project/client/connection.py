@@ -21,11 +21,13 @@ class ServerConnection:
         self._file = None
         self._lock = threading.Lock()
         self._username = None
-        self._session_id = None  # FIX: actually store session id
+        self._session_id = None
 
     def connect(self):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.settimeout(5)
         self._sock.connect((self.host, self.port))
+        self._sock.settimeout(None)
         self._file = self._sock.makefile("r")
 
     def disconnect(self):
@@ -36,6 +38,11 @@ class ServerConnection:
                 pass
             self._sock = None
             self._file = None
+
+    def ensure_connected(self):
+        """Reconnect if the socket is dead."""
+        if self._sock is None:
+            self.connect()
 
     def _request(self, action, payload=None):
         if payload is None:
@@ -57,12 +64,14 @@ class ServerConnection:
     # --- Auth --------------------------------------------------------------
 
     def login(self, username, password):
+        self.ensure_connected()
         resp = self._request("login", {"username": username, "password": password})
         if resp.get("status") == "ok":
             self._username = username
         return resp
 
     def register(self, username, password, email=None):
+        self.ensure_connected()
         resp = self._request("register", {"username": username, "password": password})
         if resp.get("status") == "ok":
             self._username = username
@@ -157,17 +166,14 @@ class ServerConnection:
         return None
 
     def set_session(self, session_id):
-        """Call this when a match is found so chat knows which session to use."""
         self._session_id = session_id
 
     def clear_session(self):
-        """Call this when leaving a game."""
         self._session_id = None
 
     # --- Chat --------------------------------------------------------------
 
     def send_chat(self, message, game="global", recipient=None):
-        # FIX: _session_id is now properly set via set_session()
         payload = {
             "game_id": self._session_id,
             "username": self._username,
