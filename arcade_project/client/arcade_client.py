@@ -6,6 +6,7 @@ Date: Spring 2026
 Lab: Final Project
 """
 
+import os
 import sys
 import time
 import threading
@@ -30,8 +31,8 @@ WINDOW_W = 1024
 WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
-SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 9000
+SERVER_HOST = os.environ.get("ARCADE_PLATFORM_HOST", "ece-000.eng.temple.edu")
+SERVER_PORT = int(os.environ.get("ARCADE_PLATFORM_PORT", "9000"))
 
 GAME_LIST = [
     GameInfo("deven",    "Deven's Game",    "Fast reflex mini-game"),
@@ -149,7 +150,6 @@ class ArcadeClient:
             pass
 
     def _sync_game_ratings(self) -> None:
-        """Fetches community star averages for the game list (no login required on server)."""
         if not self._connected:
             return
         try:
@@ -267,8 +267,6 @@ class ArcadeClient:
                     pass
             self._session_start_time = None
 
-        # FIX: tell the platform server the game is over so the session is
-        # cleared and a new player joining doesn't land in the ghost session
         if self._session_id:
             try:
                 self._conn._request("end_game", {
@@ -280,10 +278,8 @@ class ArcadeClient:
             except Exception as e:
                 print(f"[leave] end_game error: {e}")
 
-        # FIX: clear the session id on the connection so chat stops sending
         self._conn.clear_session()
 
-        # FIX: disconnect from C++ game server so the ghost player is removed
         if self._ellie_game is not None:
             try:
                 self._ellie_game.cleanup()
@@ -302,7 +298,6 @@ class ArcadeClient:
         self._session_id = session_id
         self._session_start_time = time.time()
 
-        # FIX: tell the connection which session we're in so send_chat works
         self._conn.set_session(session_id)
 
         game_name = next((g.name for g in GAME_LIST if g.id == self._current_game_id), self._current_game_id)
@@ -380,9 +375,6 @@ class ArcadeClient:
                 else:
                     active.handle_event(event)
                     if self._ellie_game and self._current == AppScreen.PLAY:
-                        # FIX: re-read focus AFTER active.handle_event so that
-                        # a click that focuses the chat input this frame also
-                        # blocks keyboard events (like SPACE) in the same frame.
                         chat_focused_now = self._play.chat_input_focused
                         if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION, pygame.MOUSEWHEEL):
                             self._ellie_game.handle_event(event)
@@ -392,8 +384,6 @@ class ArcadeClient:
             active.update(dt)
 
             if self._ellie_game and self._current == AppScreen.PLAY:
-                # FIX: tell the game whether chat is focused so it can
-                # suppress pygame.key.get_pressed() input at the source
                 self._ellie_game.chat_focused = self._play.chat_input_focused
                 try:
                     self._ellie_game.update(dt)
