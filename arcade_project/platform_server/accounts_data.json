@@ -1,4 +1,10 @@
 {
+  "aurelia": {
+    "password": "diddy",
+    "favorite_game": "ellie",
+    "minutes_played": 0,
+    "messages_sent": 0
+  },
   "ellieglutzz": {
     "password": "Gizmo512000!",
     "favorite_game": "",
@@ -9,16 +15,10 @@
     "password": "Gizmo512000!",
     "favorite_game": "ellie",
     "minutes_played": 8,
-    "messages_sent": 8
+    "messages_sent": 11
   },
   "ellie": {
     "password": "cute",
-    "favorite_game": "",
-    "minutes_played": 0,
-    "messages_sent": 0
-  },
-  "DJG": {
-    "password": "123",
     "favorite_game": "",
     "minutes_played": 0,
     "messages_sent": 0
@@ -29,11 +29,17 @@
     "minutes_played": 0,
     "messages_sent": 0
   },
+  "DJG": {
+    "password": "123",
+    "favorite_game": "",
+    "minutes_played": 0,
+    "messages_sent": 0
+  },
   "deven": {
     "password": "67",
     "favorite_game": "deven",
-    "minutes_played": 0,
-    "messages_sent": 2
+    "minutes_played": 1,
+    "messages_sent": 4
   },
   "mennah": {
     "password": "12345",
