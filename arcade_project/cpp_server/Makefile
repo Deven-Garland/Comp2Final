@@ -55,9 +55,8 @@ server$(SUFFIX): $(SRC_DIR)/server.cpp $(OBJS)
 	@echo "Executable: server$(SUFFIX)"
 	@echo ""
 	@echo "Run with:"
-	@echo "  ./server$(SUFFIX) --game deven"
-	@echo "  ./server$(SUFFIX) --port 50064"
-	@echo "  Team defaults: deven=50064 mennah=50063 ellie=50072 kimberly=50081 vraj=50077"
+	@echo "  ./server$(SUFFIX)"
+	@echo "  ./server$(SUFFIX) --port 8005"
 	@echo "===================================="
 	@echo ""
 

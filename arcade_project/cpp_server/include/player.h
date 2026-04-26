@@ -22,7 +22,6 @@ private:
     bool connected;
     std::string character_type;  // "cleric", "hobbit", "thief", "wizard"
     std::string status;          // "up", "down", "left", "right"
-    int instance_id;            // which game room / instance (-1 if none)
     
 public:
     // Constructors
@@ -41,7 +40,6 @@ public:
     bool is_connected() const;
     std::string get_character_type() const;
     std::string get_status() const;
-    int get_instance_id() const;
     
     // Setters
     void set_position(float new_x, float new_y);
@@ -50,7 +48,6 @@ public:
     void set_socket(int sock);
     void set_character_type(std::string type);
     void set_status(std::string new_status);
-    void set_instance_id(int room_id);
     
     // Operators
     bool operator==(const Player& other) const;

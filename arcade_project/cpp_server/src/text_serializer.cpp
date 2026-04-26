@@ -1,46 +1,51 @@
 /*
 text_serializer.cpp - Text serialization implementation
 
-Author: [Deven Garland]
-Date: [1/28/2026]
+Author: [Student Name]
+Date: [Date]
 */
 
 #include "text_serializer.h"
 
-#include <sstream>
-#include <string>
-
 std::string TextSerializer::serialize(const Player& player) {
-    std::ostringstream oss;
-
-    oss << player.get_id() << "|"
-        << player.get_name() << "|"
-        << player.get_x() << "|"
-        << player.get_y() << "|"
-        << player.get_socket();
-
-    return oss.str();
+    std::ostringstream ss;
+    ss << player.get_id() << "|"
+       << player.get_name() << "|"
+       << player.get_x() << "|"
+       << player.get_y() << "|"
+       << player.get_socket() << "|"
+       << player.get_character_type() << "|"
+       << player.get_status();
+    return ss.str();
 }
 
 Player TextSerializer::deserialize(const std::string& data) {
-    std::istringstream iss(data);
-
-    std::string id_str, name, x_str, y_str, socket_str;
-
-    std::getline(iss, id_str, '|');
-    std::getline(iss, name, '|');
-    std::getline(iss, x_str, '|');
-    std::getline(iss, y_str, '|');
-    std::getline(iss, socket_str);
-
+    std::istringstream ss(data);
+    std::string id_str, name, x_str, y_str, socket_str, character_type, status;
+    
+    // Parse fields separated by |
+    std::getline(ss, id_str, '|');
+    std::getline(ss, name, '|');
+    std::getline(ss, x_str, '|');
+    std::getline(ss, y_str, '|');
+    std::getline(ss, socket_str, '|');
+    std::getline(ss, character_type, '|');
+    std::getline(ss, status, '|');
+    
+    // Convert strings to appropriate types
     int id = std::stoi(id_str);
-    int socket = std::stoi(socket_str);
     float x = std::stof(x_str);
     float y = std::stof(y_str);
-
-    return Player(id, name, x, y, socket);
+    int socket = std::stoi(socket_str);
+    
+    // Create player and set additional fields
+    Player player(id, name, x, y, socket);
+    player.set_character_type(character_type);
+    player.set_status(status);
+    
+    return player;
 }
 
 std::string TextSerializer::getName() const {
-    return "TextSerializer";
+    return "Text";
 }

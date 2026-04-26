@@ -19,7 +19,6 @@ Player::Player() {
     connected = false;
     character_type = "";
     status = "down";
-    instance_id = -1;
 }
 
 // Parameterized constructor
@@ -32,7 +31,6 @@ Player::Player(int id, std::string name, float x, float y, int socket) {
     this->connected = true;
     this->character_type = "";
     this->status = "down";
-    this->instance_id = -1;
 }
 
 // Destructor
@@ -73,10 +71,6 @@ std::string Player::get_status() const {
     return status;
 }
 
-int Player::get_instance_id() const {
-    return instance_id;
-}
-
 // Setters
 void Player::set_position(float new_x, float new_y) {
     x = new_x;
@@ -101,10 +95,6 @@ void Player::set_character_type(std::string type) {
 
 void Player::set_status(std::string new_status) {
     status = new_status;
-}
-
-void Player::set_instance_id(int room_id) {
-    instance_id = room_id;
 }
 
 // Equality operator
