@@ -84,6 +84,18 @@ class ServerConnection:
     def get_leaderboard(self, top_n=10):
         return self._request("top_players", {"k": top_n})
 
+    def get_game_leaderboard(self, game, stat="score", top_n=10):
+        return self._request("top_players", {"k": top_n, "game": game, "stat": stat})
+
+    def get_player_rank(self, username, game, stat="score"):
+        return self._request("player_rank", {"username": username, "game": game, "stat": stat})
+
+    def get_score_range(self, game, stat, low, high):
+        return self._request(
+            "players_in_score_range",
+            {"game": game, "stat": stat, "low": low, "high": high},
+        )
+
     def rate_game(self, game_name, stars):
         return self._request("rate_game", {"game_name": game_name, "stars": int(stars)})
 
@@ -110,6 +122,12 @@ class ServerConnection:
         if resp.get("status") == "ok":
             return resp.get("data") or 0
         return 0
+
+    def report_disconnect(self, username, game="global"):
+        return self._request("player_disconnected", {"username": username, "game": game})
+
+    def report_death(self, username, game="global"):
+        return self._request("player_died", {"username": username, "game": game})
 
     # --- Favorite game -----------------------------------------------------
 
@@ -148,9 +166,14 @@ class ServerConnection:
 
     # --- Chat --------------------------------------------------------------
 
-    def send_chat(self, message, recipient=None):
+    def send_chat(self, message, game="global", recipient=None):
         # FIX: _session_id is now properly set via set_session()
-        payload = {"game_id": self._session_id, "username": self._username, "text": message}
+        payload = {
+            "game_id": self._session_id,
+            "username": self._username,
+            "text": message,
+            "game": game,
+        }
         return self._request("send_message", payload)
 
     def poll_chat(self, session_id):

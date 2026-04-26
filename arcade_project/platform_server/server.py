@@ -29,6 +29,7 @@ from platform_server.history import History
 from platform_server.leaderboard import Leaderboard
 from platform_server.matchmaking import Matchmaking
 from platform_server.ratings import Ratings
+from datastructures.hash_table import HashTable
 
 
 DEFAULT_HOST = os.getenv("PLATFORM_SERVER_HOST", "127.0.0.1")
@@ -55,6 +56,10 @@ class PlatformServer:
         self.players_per_match = players_per_match
         self.next_game_id = 1
         self.active_game_id = None
+        # Separate leaderboards/counters per game + stat.
+        # Example board names: "ellie:deaths", "deven:disconnects", "global:score".
+        self.game_leaderboards = HashTable()
+        self.game_counters = HashTable()
 
         self.data_ingest = DataIngest(self.accounts, self.leaderboard, self.catalog)
         self.data_ingest.load_data()
@@ -93,9 +98,11 @@ class PlatformServer:
     def send_game_request(self, game, request):
         return self.game_connector.send(game, request)
 
-    def send_message(self, game_id, username, text):
+    def send_message(self, game_id, username, text, game="global"):
         self.chat.send_message(game_id, username, text)
         self.accounts.add_message(username)
+        self._increment_board_score(f"{game}:chats", username, 1)
+        self._increment_board_score("global:chats", username, 1)
         return True
 
     def get_chat(self, game_id):
@@ -108,16 +115,117 @@ class PlatformServer:
             ]
         }
 
-    def end_game(self, game_id, players, winner, score):
+    def end_game(self, game_id, players, winner, score, game="global"):
         self.history.add_match(game_id, players, winner)
         self.leaderboard.add_score(winner, score)
+        self._set_board_score(f"{game}:score", winner, score)
+        self._set_board_score("global:score", winner, score)
+        for player in players:
+            self.record_session_result(
+                game=game,
+                username=player,
+                score=score if player == winner else 0,
+                play_time=0,
+            )
         self.chat.end_session(game_id)
         if self.active_game_id == game_id:
             self.active_game_id = None
         return True
 
-    def top_players(self, k):
+    def _get_or_create_board(self, board_name):
+        if board_name not in self.game_leaderboards:
+            self.game_leaderboards[board_name] = Leaderboard()
+        return self.game_leaderboards[board_name]
+
+    def _get_or_create_board_counter(self, board_name):
+        if board_name not in self.game_counters:
+            self.game_counters[board_name] = HashTable()
+        return self.game_counters[board_name]
+
+    def _set_board_score(self, board_name, username, score):
+        board = self._get_or_create_board(board_name)
+        board.add_score(username, score)
+
+    def _increment_board_score(self, board_name, username, amount=1):
+        counters = self._get_or_create_board_counter(board_name)
+        current = counters[username] if username in counters else 0
+        new_score = current + amount
+        counters[username] = new_score
+        self._set_board_score(board_name, username, new_score)
+        return new_score
+
+    def _get_counter_value(self, board_name, username):
+        counters = self._get_or_create_board_counter(board_name)
+        if username not in counters:
+            return 0
+        return counters[username]
+
+    def record_session_result(
+        self,
+        game,
+        username,
+        score=0,
+        play_time=0,
+        chats_delta=0,
+        deaths_delta=0,
+        disconnects_delta=0,
+    ):
+        """
+        Update per-game leaderboards after one completed session.
+        Tracks raw per-game metrics for games without winner/win-rate concepts.
+        """
+        if not self.accounts.exists(username):
+            return False
+
+        self._set_board_score(f"{game}:score", username, score)
+        self._increment_board_score(f"{game}:play_time", username, play_time)
+        self._increment_board_score(f"{game}:sessions", username, 1)
+        if chats_delta:
+            self._increment_board_score(f"{game}:chats", username, chats_delta)
+        if deaths_delta:
+            self._increment_board_score(f"{game}:deaths", username, deaths_delta)
+        if disconnects_delta:
+            self._increment_board_score(f"{game}:disconnects", username, disconnects_delta)
+        return True
+
+    def player_disconnected(self, username, game="global"):
+        if not self.accounts.exists(username):
+            return False
+        self._increment_board_score(f"{game}:disconnects", username, 1)
+        return True
+
+    def player_died(self, username, game="global"):
+        if not self.accounts.exists(username):
+            return False
+        self._increment_board_score(f"{game}:deaths", username, 1)
+        return True
+
+    def top_players(self, k, game=None, stat=None):
+        if game and stat:
+            board_name = f"{game}:{stat}"
+            if board_name in self.game_leaderboards:
+                return self.game_leaderboards[board_name].top_k(k)
+            return []
+        if game:
+            board_name = f"{game}:score"
+            if board_name in self.game_leaderboards:
+                return self.game_leaderboards[board_name].top_k(k)
+            return []
         return self.leaderboard.top_k(k)
+
+    def player_rank(self, username, game, stat="score"):
+        if not self.accounts.exists(username):
+            return None
+        board_name = f"{game}:{stat}"
+        if board_name not in self.game_leaderboards:
+            return None
+        return self.game_leaderboards[board_name].rank_of(username)
+
+    def players_in_score_range(self, game, stat, low, high):
+        board_name = f"{game}:{stat}"
+        if board_name not in self.game_leaderboards:
+            return []
+        return self.game_leaderboards[board_name].range_query(low, high)
 
     def player_history(self, username):
         return self.history.get_player_history(username)
@@ -213,6 +321,8 @@ class RequestDispatcher:
         "send_message", "get_chat", "end_game", "top_players",
         "player_history", "set_favorite", "get_favorite",
         "add_minutes", "get_minutes", "get_messages_sent",
+        "player_disconnected", "player_died",
+        "record_session_result", "player_rank", "players_in_score_range",
         "rate_game", "get_rating_rankings", "get_highest_rated_game", "get_lowest_rated_game",
     )
 

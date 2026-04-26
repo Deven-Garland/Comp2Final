@@ -15,6 +15,7 @@ from client.screens import (
     AppScreen,
     BrowserScreen,
     GameInfo,
+    LeaderboardScreen,
     LoginScreen,
     PlayerStats,
     PlaySessionScreen,
@@ -64,6 +65,7 @@ class ArcadeClient:
         self._chat_shown = set()
         self._ellie_game = None
         self._session_start_time = None
+        self._leaderboard_from_play = False
 
         self._conn = ServerConnection(SERVER_HOST, SERVER_PORT)
         try:
@@ -80,10 +82,17 @@ class ArcadeClient:
             on_play=self._handle_play,
             on_logout=self._handle_logout,
             on_stats=self._handle_stats,
+            on_leaderboard=self._handle_leaderboard,
             on_star=self._handle_star,
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
+        self._leaderboard = LeaderboardScreen(
+            full,
+            on_back=self._handle_back_to_browser,
+            on_refresh=self._load_leaderboard_data,
+            games=GAME_LIST,
+        )
         self._queue = QueueScreen(full, game_name="", on_cancel=self._handle_cancel_queue)
         self._play = PlaySessionScreen(
             full,
@@ -104,6 +113,7 @@ class ArcadeClient:
             AppScreen.LOGIN:   self._login,
             AppScreen.BROWSER: self._browser,
             AppScreen.STATS:   self._stats,
+            AppScreen.LEADERBOARD: self._leaderboard,
             AppScreen.QUEUE:   self._queue,
             AppScreen.PLAY:    self._play,
         }[self._current]
@@ -167,6 +177,11 @@ class ArcadeClient:
             self._queue.set_detail(f"Server error: {e}")
 
     def _handle_logout(self) -> None:
+        if self._username:
+            try:
+                self._conn.report_disconnect(self._username, self._current_game_id or "global")
+            except Exception:
+                pass
         self._conn.disconnect()
         try:
             self._conn.connect()
@@ -199,7 +214,44 @@ class ArcadeClient:
         self._go_to(AppScreen.STATS)
 
     def _handle_back_to_browser(self) -> None:
+        if self._leaderboard_from_play and self._session_id:
+            self._leaderboard_from_play = False
+            self._go_to(AppScreen.PLAY)
+            return
         self._go_to(AppScreen.BROWSER)
+
+    def _load_leaderboard_data(self, game_id: str, stat: str):
+        top_rows = []
+        range_rows = []
+        rank_value = None
+
+        top_resp = self._conn.get_game_leaderboard(game_id, stat=stat, top_n=10)
+        if top_resp.get("status") == "ok":
+            top_rows = [str(row) for row in (top_resp.get("data") or [])]
+
+        rank_resp = self._conn.get_player_rank(self._username, game_id, stat=stat)
+        if rank_resp.get("status") == "ok":
+            rank_value = rank_resp.get("data")
+
+        range_resp = self._conn.get_score_range(game_id, stat, 1, 1000000)
+        if range_resp.get("status") == "ok":
+            range_rows = [str(row) for row in (range_resp.get("data") or [])]
+
+        return top_rows, rank_value, range_rows
+
+    def _handle_leaderboard(self) -> None:
+        self._leaderboard_from_play = False
+        self._leaderboard.refresh()
+        self._go_to(AppScreen.LEADERBOARD)
+
+    def _toggle_leaderboard_hotkey(self) -> None:
+        if self._current == AppScreen.PLAY:
+            self._leaderboard_from_play = True
+            self._leaderboard.refresh()
+            self._go_to(AppScreen.LEADERBOARD)
+        elif self._current == AppScreen.LEADERBOARD and self._leaderboard_from_play and self._session_id:
+            self._leaderboard_from_play = False
+            self._go_to(AppScreen.PLAY)
 
     def _handle_star(self, game_id: str) -> None:
         try:
@@ -217,12 +269,12 @@ class ArcadeClient:
 
     def _handle_send_chat(self, text: str) -> None:
         try:
-            self._conn.send_chat(text)
+            self._conn.send_chat(text, game=self._current_game_id or "global")
         except Exception as e:
             print(f"[chat] send error: {e}")
         self._play.add_chat(self._username, text)
 
-    def _handle_leave(self) -> None:
+    def _handle_leave(self, reason: str = "disconnect") -> None:
         if self._session_start_time is not None:
             elapsed_minutes = int((time.time() - self._session_start_time) / 60)
             if elapsed_minutes > 0:
@@ -231,6 +283,15 @@ class ArcadeClient:
                 except Exception:
                     pass
             self._session_start_time = None
+
+        if self._username:
+            try:
+                if reason == "death":
+                    self._conn.report_death(self._username, self._current_game_id or "global")
+                else:
+                    self._conn.report_disconnect(self._username, self._current_game_id or "global")
+            except Exception:
+                pass
 
         # FIX: tell the platform server the game is over so the session is
         # cleared and a new player joining doesn't land in the ghost session
@@ -241,6 +302,7 @@ class ArcadeClient:
                     "players": [self._username],
                     "winner": self._username,
                     "score": 0,
+                    "game": self._current_game_id or "global",
                 })
             except Exception as e:
                 print(f"[leave] end_game error: {e}")
@@ -342,6 +404,8 @@ class ArcadeClient:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._running = False
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_l:
+                    self._toggle_leaderboard_hotkey()
                 else:
                     active.handle_event(event)
                     if self._ellie_game and self._current == AppScreen.PLAY:
@@ -363,7 +427,7 @@ class ArcadeClient:
                 try:
                     self._ellie_game.update(dt)
                     if self._ellie_game.state == "done":
-                        self._handle_leave()
+                        self._handle_leave(reason="death")
                 except Exception as e:
                     print(f"[ellie_game] update error: {e}")
 

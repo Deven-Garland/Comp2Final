@@ -218,6 +218,7 @@ class BrowserScreen:
         on_play: Callable[[str], None],
         on_logout: Callable[[], None],
         on_stats: Callable[[], None],
+        on_leaderboard: Callable[[], None],
         on_star: Optional[Callable[[str], None]] = None,
         games: Optional[List[GameInfo]] = None,
     ):
@@ -225,6 +226,7 @@ class BrowserScreen:
         self.on_play = on_play
         self.on_logout = on_logout
         self.on_stats = on_stats
+        self.on_leaderboard = on_leaderboard
         self.on_star = on_star
         self.favorite_game_id = ""
         self.games: List[GameInfo] = games or [
@@ -239,7 +241,8 @@ class BrowserScreen:
         self._hover_row = -1
         pad = 24
         self._list_rect = pygame.Rect(rect.x + pad, rect.y + 100, rect.width - 2 * pad, rect.height - 200)
-        self._btn_stats = Button(pygame.Rect(rect.right - pad - 130, rect.y + 24, 120, 36), "View stats")
+        self._btn_stats = Button(pygame.Rect(rect.right - pad - 260, rect.y + 24, 120, 36), "View stats")
+        self._btn_lb = Button(pygame.Rect(rect.right - pad - 130, rect.y + 24, 120, 36), "Leaderboard")
         self._btn_play = Button(pygame.Rect(rect.right - pad - 160, rect.bottom - 72, 150, 44), "Find match")
         self._btn_out = Button(pygame.Rect(rect.x + pad, rect.bottom - 72, 120, 44), "Log out")
 
@@ -258,6 +261,8 @@ class BrowserScreen:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self._btn_stats.contains(event.pos):
                 self.on_stats()
+            elif self._btn_lb.contains(event.pos):
+                self.on_leaderboard()
             elif self._btn_play.contains(event.pos) and self._selected is not None:
                 gid = self.games[self._selected].id
                 self.on_play(gid)
@@ -338,6 +343,7 @@ class BrowserScreen:
 
         mp = pygame.mouse.get_pos()
         self._btn_stats.draw(surface, self._btn_stats.contains(mp))
+        self._btn_lb.draw(surface, self._btn_lb.contains(mp))
         self._btn_play.enabled = self._selected is not None
         self._btn_play.draw(surface, self._btn_play.contains(mp))
         self._btn_out.draw(surface, self._btn_out.contains(mp))
@@ -428,6 +434,112 @@ class StatsScreen:
 
         mp = pygame.mouse.get_pos()
         self._btn_back.draw(surface, self._btn_back.contains(mp))
+
+
+class LeaderboardScreen:
+    def __init__(
+        self,
+        rect: pygame.Rect,
+        on_back: Callable[[], None],
+        on_refresh: Callable[[str, str], Tuple[List[str], Optional[int], List[str]]],
+        games: Optional[List[GameInfo]] = None,
+    ):
+        self.rect = rect
+        self.on_back = on_back
+        self.on_refresh = on_refresh
+        self.games = games or []
+        self.game_idx = 0
+        self.stats = ["score", "chats", "deaths", "disconnects", "play_time", "sessions"]
+        self.stat_idx = 0
+        self.top_rows: List[str] = []
+        self.range_rows: List[str] = []
+        self.rank_value: Optional[int] = None
+        self.status = ""
+
+        pad = 24
+        self._btn_back = Button(pygame.Rect(rect.x + pad, rect.y + pad, 120, 40), "Back")
+        self._btn_game = Button(pygame.Rect(rect.x + pad, rect.y + 84, 220, 36), "Game")
+        self._btn_stat = Button(pygame.Rect(rect.x + pad + 236, rect.y + 84, 220, 36), "Stat")
+        self._btn_refresh = Button(pygame.Rect(rect.right - pad - 140, rect.y + 84, 140, 36), "Refresh")
+
+    def _current_game(self) -> str:
+        if not self.games:
+            return "global"
+        return self.games[self.game_idx].id
+
+    def _current_stat(self) -> str:
+        return self.stats[self.stat_idx]
+
+    def refresh(self) -> None:
+        game = self._current_game()
+        stat = self._current_stat()
+        try:
+            self.top_rows, self.rank_value, self.range_rows = self.on_refresh(game, stat)
+            self.status = f"Loaded {game}:{stat}"
+        except Exception as error:
+            self.status = f"Load failed: {error}"
+            self.top_rows, self.range_rows = [], []
+            self.rank_value = None
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._btn_back.contains(event.pos):
+                self.on_back()
+            elif self._btn_game.contains(event.pos):
+                total = max(1, len(self.games))
+                self.game_idx = (self.game_idx + 1) % total
+                self.refresh()
+            elif self._btn_stat.contains(event.pos):
+                self.stat_idx = (self.stat_idx + 1) % len(self.stats)
+                self.refresh()
+            elif self._btn_refresh.contains(event.pos):
+                self.refresh()
+
+    def update(self, dt: float) -> None:
+        pass
+
+    def draw(self, surface: pygame.Surface) -> None:
+        pygame.draw.rect(surface, COLORS["bg"], self.rect)
+        title = TITLE_FONT.render("Leaderboard", True, COLORS["accent"])
+        surface.blit(title, (self.rect.centerx - title.get_width() // 2, self.rect.y + 24))
+
+        game_label = f"Game: {self._current_game()}"
+        stat_label = f"Stat: {self._current_stat()}"
+        self._btn_game.label = game_label
+        self._btn_stat.label = stat_label
+
+        mp = pygame.mouse.get_pos()
+        self._btn_back.draw(surface, self._btn_back.contains(mp))
+        self._btn_game.draw(surface, self._btn_game.contains(mp))
+        self._btn_stat.draw(surface, self._btn_stat.contains(mp))
+        self._btn_refresh.draw(surface, self._btn_refresh.contains(mp))
+
+        rank_text = f"Your rank: {self.rank_value}" if self.rank_value is not None else "Your rank: -"
+        rank_render = BODY_FONT.render(rank_text, True, COLORS["text"])
+        surface.blit(rank_render, (self.rect.x + 24, self.rect.y + 138))
+
+        status_render = SMALL_FONT.render(self.status, True, COLORS["text_dim"])
+        surface.blit(status_render, (self.rect.x + 24, self.rect.y + 168))
+
+        top_box = pygame.Rect(self.rect.x + 24, self.rect.y + 198, self.rect.width // 2 - 36, self.rect.height - 222)
+        range_box = pygame.Rect(self.rect.centerx + 12, self.rect.y + 198, self.rect.width // 2 - 36, self.rect.height - 222)
+        for box, heading in ((top_box, "Top Players"), (range_box, "Range Query")):
+            pygame.draw.rect(surface, COLORS["panel"], box, border_radius=10)
+            pygame.draw.rect(surface, COLORS["border"], box, 1, border_radius=10)
+            hdr = BODY_FONT.render(heading, True, COLORS["text"])
+            surface.blit(hdr, (box.x + 12, box.y + 10))
+
+        y = top_box.y + 44
+        for idx, row in enumerate(self.top_rows[:12], start=1):
+            line = SMALL_FONT.render(f"{idx}. {row}", True, COLORS["text"])
+            surface.blit(line, (top_box.x + 12, y))
+            y += 24
+
+        y = range_box.y + 44
+        for row in self.range_rows[:12]:
+            line = SMALL_FONT.render(str(row), True, COLORS["text"])
+            surface.blit(line, (range_box.x + 12, y))
+            y += 24
 
 
 # --- Queue / waiting -------------------------------------------------------
@@ -614,6 +726,7 @@ class AppScreen(Enum):
     LOGIN = auto()
     BROWSER = auto()
     STATS = auto()
+    LEADERBOARD = auto()
     QUEUE = auto()
     PLAY = auto()
 
@@ -630,6 +743,7 @@ __all__ = [
     "GameInfo",
     "PlayerStats",
     "StatsScreen",
+    "LeaderboardScreen",
     "QueueScreen",
     "PlaySessionScreen",
     "ChatLine",

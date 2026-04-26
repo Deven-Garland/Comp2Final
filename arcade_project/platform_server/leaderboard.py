@@ -12,6 +12,7 @@ Lab: Final Project - Leaderboard
 """
 from datastructures.bst import BinarySearchTree
 from datastructures.hash_table import HashTable
+from datastructures.sorting import merge_sort
  
  
 class LeaderboardEntry:
@@ -38,18 +39,11 @@ class LeaderboardEntry:
  
  
 class Leaderboard:
-    def __init__(self, metric_weights=None):
+    def __init__(self):
         self.tree = BinarySearchTree()
         # HashTable: username -> LeaderboardEntry
         # Lets us update a player's score in O(1) without scanning the BST
         self._entries = HashTable()
-        # HashTable: username -> {metric_name: value}
-        self._metrics = HashTable()
-        # Dict of metric_name -> weight used for score calculation.
-        # Example: {"wins": 100, "time_played_seconds": 0.1, "chats_sent": 2}
-        self._metric_weights = {}
-        if metric_weights is not None:
-            self.set_metric_weights(metric_weights)
  
     def add_score(self, username, score):
         # If player already has a score, remove the old entry from the BST
@@ -59,69 +53,33 @@ class Leaderboard:
         self.tree.insert(entry)
         self._entries[username] = entry
 
-    def set_metric_weights(self, metric_weights):
+    def get_score(self, username):
         """
-        Configure how each metric contributes to the final score.
-        metric_weights should be a dict-like object: {metric_name: weight}
+        Return the current score for a user (or None if missing).
         """
-        self._metric_weights = {}
-        for metric_name, weight in metric_weights.items():
-            self._metric_weights[metric_name] = float(weight)
+        if username not in self._entries:
+            return None
+        return self._entries[username].score
 
-    def record_metric(self, username, metric_name, amount=1, recompute_score=True):
+    def rank_of(self, username):
         """
-        Increment one metric for a player.
-        This is the main method games should call when events happen.
+        Return 1-based rank (highest score is rank 1), or None if missing.
         """
-        if username not in self._metrics:
-            self._metrics[username] = {}
-        metrics = self._metrics[username]
-        current = metrics.get(metric_name, 0)
-        metrics[metric_name] = current + amount
-        if recompute_score:
-            self.recalculate_score(username)
-
-    def set_metric(self, username, metric_name, value, recompute_score=True):
-        """
-        Set a metric to an exact value (instead of incrementing).
-        Useful for values like total_time_seconds pulled from game state.
-        """
-        if username not in self._metrics:
-            self._metrics[username] = {}
-        metrics = self._metrics[username]
-        metrics[metric_name] = value
-        if recompute_score:
-            self.recalculate_score(username)
-
-    def get_player_metrics(self, username):
-        """
-        Return a copy of a player's metrics dictionary.
-        """
-        if username not in self._metrics:
-            return {}
-        metrics = self._metrics[username]
-        return dict(metrics)
-
-    def calculate_score_from_metrics(self, username):
-        """
-        Compute weighted score using configured metric weights.
-        Metrics with no configured weight default to weight 0.
-        """
-        if username not in self._metrics:
-            return 0
-        metrics = self._metrics[username]
-        total = 0
-        for metric_name, value in metrics.items():
-            weight = self._metric_weights.get(metric_name, 0)
-            total += value * weight
-        return total
-
-    def recalculate_score(self, username):
-        """
-        Recompute a player's score from tracked metrics and update leaderboard.
-        """
-        score = self.calculate_score_from_metrics(username)
-        self.add_score(username, score)
+        if username not in self._entries:
+            return None
+        sorted_values = merge_sort(
+            self._get_sorted(),
+            key=lambda entry: (entry.score, entry.username),
+            reverse=True,
+        )
+        rank = 1
+        i = 0
+        while i < len(sorted_values):
+            if sorted_values[i].username == username:
+                return rank
+            rank += 1
+            i += 1
+        return None
  
     def _get_sorted(self):
         """
@@ -134,16 +92,20 @@ class Leaderboard:
         while i <= result[0]:
             values.append(result[i])
             i += 1
-        return values
+        return merge_sort(values, key=lambda entry: (entry.score, entry.username))
  
     def top_k(self, k):
-        sorted_values = self._get_sorted()
+        sorted_values = merge_sort(
+            self._get_sorted(),
+            key=lambda entry: (entry.score, entry.username),
+            reverse=True,
+        )
         result = []
-        i = len(sorted_values) - 1
+        i = 0
         count = 0
-        while i >= 0 and count < k:
+        while i < len(sorted_values) and count < k:
             result.append(sorted_values[i])
-            i -= 1
+            i += 1
             count += 1
         return result
  
