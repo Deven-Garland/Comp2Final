@@ -1,7 +1,28 @@
 import time
 import matplotlib.pyplot as plt
 
-from platform_server.history import History
+import os
+import sys
+import time
+import random
+import matplotlib.pyplot as plt
+
+
+current_folder = os.path.dirname(os.path.abspath(__file__))
+
+
+platform_server_folder = os.path.dirname(current_folder)
+
+
+project_folder = os.path.dirname(platform_server_folder)
+
+
+sys.path.insert(0, project_folder)
+
+
+sys.path.insert(0, platform_server_folder)
+
+from history import History
 
 
 def build_history(n):
