@@ -1,20 +1,29 @@
+import os
+import sys
 import time
 import random
 import matplotlib.pyplot as plt
 
-from accounts.py import Account
+# Go one folder up from time_complexity to platform_server
+current_folder = os.path.dirname(os.path.abspath(__file__))
+platform_server_folder = os.path.dirname(current_folder)
+
+# Let Python import accounts.py, history.py, etc.
+sys.path.insert(0, platform_server_folder)
+
+from accounts import Accounts
 
 # Turn off file loading/saving so we only measure the data structures
-Account._load = lambda self: None
-Account._save = lambda self: None
+Accounts._load = lambda self: None
+Accounts._save = lambda self: None
 
 
 def build_accounts(n):
-    accounts = Account()
+    accounts = Accounts()
 
     for i in range(n):
         username = f"user{i}"
-        account.register(username, "password123")
+        accounts.register(username, "password123")
 
     return accounts
 
