@@ -2,7 +2,6 @@
 connection.py - Client connection to the platform server
 
 Matches the new server protocol: newline-delimited JSON over TCP.
-Each request is a JSON object ending with \n, each response is a JSON object ending with \n.
 
 Author: Team MOSFET
 Date: Spring 2026
@@ -12,15 +11,9 @@ Lab: Final Project
 import json
 import socket
 import threading
-import time
 
 
 class ServerConnection:
-    """
-    Client-side connection to the platform server.
-    Uses newline-delimited JSON protocol to match server.py's RequestDispatcher.
-    """
-
     def __init__(self, host="127.0.0.1", port=9000):
         self.host = host
         self.port = port
@@ -28,6 +21,7 @@ class ServerConnection:
         self._file = None
         self._lock = threading.Lock()
         self._username = None
+        self._session_id = None  # FIX: actually store session id
 
     def connect(self):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -44,7 +38,6 @@ class ServerConnection:
             self._file = None
 
     def _request(self, action, payload=None):
-        """Send a request and return the response dict."""
         if payload is None:
             payload = {}
         request = {"action": action, **payload}
@@ -54,7 +47,6 @@ class ServerConnection:
         if not line:
             return {"status": "error", "message": "No response from server"}
         resp = json.loads(line.strip())
-        # Normalize to {status, data, message} format
         if "ok" in resp:
             if resp["ok"]:
                 return {"status": "ok", "data": resp.get("result", {})}
@@ -92,13 +84,51 @@ class ServerConnection:
     def get_leaderboard(self, top_n=10):
         return self._request("top_players", {"k": top_n})
 
+    def rate_game(self, game_name, stars):
+        return self._request("rate_game", {"game_name": game_name, "stars": int(stars)})
+
+    def get_rating_rankings(self):
+        return self._request("get_rating_rankings")
+
+    def get_highest_rated_game(self):
+        return self._request("get_highest_rated_game")
+
+    def get_lowest_rated_game(self):
+        return self._request("get_lowest_rated_game")
+
+    def get_minutes(self, username):
+        resp = self._request("get_minutes", {"username": username})
+        if resp.get("status") == "ok":
+            return resp.get("data") or 0
+        return 0
+
+    def add_minutes(self, username, minutes):
+        return self._request("add_minutes", {"username": username, "minutes": minutes})
+
+    def get_messages_sent(self, username):
+        resp = self._request("get_messages_sent", {"username": username})
+        if resp.get("status") == "ok":
+            return resp.get("data") or 0
+        return 0
+
+    # --- Favorite game -----------------------------------------------------
+
+    def get_favorite(self, username):
+        resp = self._request("get_favorite", {"username": username})
+        if resp.get("status") == "ok":
+            return resp.get("data") or ""
+        return ""
+
+    def set_favorite(self, username, game_id):
+        return self._request("set_favorite", {"username": username, "game_id": game_id})
+
     # --- Matchmaking -------------------------------------------------------
 
     def join_queue(self, skill_rating=1000):
         return self._request("join_queue", {"username": self._username})
 
     def leave_queue(self):
-        pass  # no endpoint yet
+        pass
 
     def poll_match(self):
         resp = self._request("try_create_match")
@@ -108,10 +138,19 @@ class ServerConnection:
                 return {"session_id": data["game_id"]}
         return None
 
+    def set_session(self, session_id):
+        """Call this when a match is found so chat knows which session to use."""
+        self._session_id = session_id
+
+    def clear_session(self):
+        """Call this when leaving a game."""
+        self._session_id = None
+
     # --- Chat --------------------------------------------------------------
 
     def send_chat(self, message, recipient=None):
-        payload = {"game_id": self._current_session, "username": self._username, "text": message}
+        # FIX: _session_id is now properly set via set_session()
+        payload = {"game_id": self._session_id, "username": self._username, "text": message}
         return self._request("send_message", payload)
 
     def poll_chat(self, session_id):
@@ -123,13 +162,7 @@ class ServerConnection:
     # --- Session -----------------------------------------------------------
 
     def leave_session(self, session_id):
-        pass  # no endpoint yet
-
-    # --- Internal ----------------------------------------------------------
-
-    @property
-    def _current_session(self):
-        return getattr(self, "_session_id", None)
+        pass
 
     def close(self):
         self.disconnect()

@@ -11,6 +11,7 @@ Lab: Final Project
 
 import os
 import sys
+import time
 
 # Make sure ellie_game's folder is first in the path
 GAME_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -19,9 +20,9 @@ if GAME_DIR not in sys.path:
 
 import pygame
 
-# C++ game server settings
-GAME_SERVER_HOST = "127.0.0.1"
-GAME_SERVER_PORT = 50072
+# C++ game server settings (override for remote ece: ARCADE_GAME_HOST / ARCADE_GAME_PORT)
+GAME_SERVER_HOST = os.environ.get("ARCADE_GAME_HOST", "127.0.0.1")
+GAME_SERVER_PORT = int(os.environ.get("ARCADE_GAME_PORT", "50072"))
 
 # Modules belonging to ellie_game that need fresh imports
 _ELLIE_MODULES = [
@@ -50,6 +51,10 @@ class EllieGame:
         self.username = username
         self.level = None
         self.running = True
+        self._leave_btn = None
+        self._start_time = None
+        self._session_stats = {}
+        self.chat_focused = False  # FIX: set by arcade_client each frame
         self._setup_character_select()
 
     def _setup_character_select(self):
@@ -107,7 +112,35 @@ class EllieGame:
             pygame.display.get_surface = _orig
             sys.path = old_path
 
+        self._start_time = time.time()
         self.state = "play"
+
+    def cleanup(self):
+        """
+        Disconnect from the C++ game server cleanly.
+        Call this before discarding the EllieGame instance so the server
+        removes the player instead of leaving a ghost.
+        """
+        if self.level and hasattr(self.level, 'network') and self.level.network:
+            try:
+                self.level.network.disconnect()
+            except Exception as e:
+                print(f"[ellie_game] disconnect error: {e}")
+            self.level.network = None
+        self.level = None
+
+    def _collect_stats(self):
+        """Grab stats from the level before leaving."""
+        if self.level:
+            elapsed = time.time() - (self._start_time or time.time())
+            self._session_stats = {
+                "hp": self.level.player.hp,
+                "max_hp": self.level.player.max_hp,
+                "xp": self.level.player.exp,
+                "weapon": self.level.player.equipped_weapon.name if self.level.player.equipped_weapon else "None",
+                "time": int(elapsed),
+                "character": self.level.player.character_name.title(),
+            }
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if self.state == "select":
@@ -126,9 +159,23 @@ class EllieGame:
                 self._check_card_click(event.pos)
 
         elif self.state == "play" and self.level:
+            # Check leave button
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if self._leave_btn and self._leave_btn.collidepoint(event.pos):
+                    self._collect_stats()
+                    self.cleanup()  # FIX: disconnect from C++ server before leaving
+                    self.state = "stats"
+                    return
             self.level.handle_events([event])
             self.level.handle_time_travel_input([event])
             self.level.handle_enemy_debug_input([event])
+
+        elif self.state == "stats":
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                w, h = self.surface.get_size()
+                back_btn = pygame.Rect(w // 2 - 80, h - 70, 160, 44)
+                if back_btn.collidepoint(event.pos):
+                    self.state = "done"
 
     def _check_card_click(self, pos):
         w, h = self.surface.get_size()
@@ -146,6 +193,8 @@ class EllieGame:
 
     def update(self, dt: float) -> None:
         if self.state == "play" and self.level:
+            # FIX: suppress player input while chat is focused
+            self.level.player.input_enabled = not self.chat_focused
             self.level.player.update()
             for other in self.level.other_players.values():
                 other.update()
@@ -162,6 +211,8 @@ class EllieGame:
             self._draw_select()
         elif self.state == "play" and self.level:
             self._draw_play()
+        elif self.state == "stats":
+            self._draw_stats()
 
     def _draw_select(self):
         w, h = self.surface.get_size()
@@ -227,3 +278,50 @@ class EllieGame:
         self.level.draw_enemy_debug()
         if self.level.inventory_ui.active:
             self.level.inventory_ui.draw(self.surface)
+
+        # Leave button drawn on top of everything
+        self._leave_btn = pygame.Rect(self.surface.get_width() - 96, 8, 88, 30)
+        pygame.draw.rect(self.surface, (180, 60, 60), self._leave_btn, border_radius=6)
+        lt = self.small_font.render("Leave Game", True, (240, 240, 245))
+        self.surface.blit(lt, lt.get_rect(center=self._leave_btn.center))
+
+    def _draw_stats(self):
+        """Post-game stats screen shown before returning to the browser."""
+        w, h = self.surface.get_size()
+        self.surface.fill((18, 18, 28))
+
+        title = self.title_font.render("Session Summary", True, (94, 234, 212))
+        self.surface.blit(title, title.get_rect(center=(w // 2, 50)))
+
+        s = self._session_stats
+        mins = s.get("time", 0) // 60
+        secs = s.get("time", 0) % 60
+
+        items = [
+            ("Character", s.get("character", "?")),
+            ("HP Remaining", f"{s.get('hp', 0)} / {s.get('max_hp', 0)}"),
+            ("XP Earned", str(s.get("xp", 0))),
+            ("Weapon", s.get("weapon", "None")),
+            ("Time Played", f"{mins}m {secs}s"),
+        ]
+
+        gap = 12
+        card_h = 70
+        card_w = w - 40
+        y0 = 110
+
+        for i, (label, value) in enumerate(items):
+            y = y0 + i * (card_h + gap)
+            rr = pygame.Rect(20, y, card_w, card_h)
+            pygame.draw.rect(self.surface, (28, 28, 42), rr, border_radius=10)
+            pygame.draw.rect(self.surface, (70, 70, 95), rr, 1, border_radius=10)
+            lab = self.small_font.render(label.upper(), True, (160, 160, 180))
+            self.surface.blit(lab, (rr.x + 14, rr.y + 12))
+            val = self.body_font.render(value, True, (240, 240, 245))
+            self.surface.blit(val, (rr.x + 14, rr.y + 36))
+
+        # Back to games button
+        back_btn = pygame.Rect(w // 2 - 80, h - 70, 160, 44)
+        pygame.draw.rect(self.surface, (60, 160, 145), back_btn, border_radius=8)
+        bt = self.body_font.render("Back to Games", True, (240, 240, 245))
+        self.surface.blit(bt, bt.get_rect(center=back_btn.center))
