@@ -4,20 +4,19 @@ import time
 import random
 import matplotlib.pyplot as plt
 
-# This file is inside:
-# arcade_project/platform_server/time_complexity
+
 current_folder = os.path.dirname(os.path.abspath(__file__))
 
-# This is arcade_project/platform_server
+
 platform_server_folder = os.path.dirname(current_folder)
 
-# This is arcade_project
+
 project_folder = os.path.dirname(platform_server_folder)
 
-# Add arcade_project so Python can find datastructures
+
 sys.path.insert(0, project_folder)
 
-# Add platform_server so Python can find accounts.py
+
 sys.path.insert(0, platform_server_folder)
 
 from accounts import Accounts
