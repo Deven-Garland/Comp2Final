@@ -56,7 +56,7 @@ exists_times = []
 get_account_times = []
 
 for n in sizes:
-    account = build_account(n)
+    accounts = build_account(n)
     usernames = [f"user{i}" for i in range(n)]
 
     register_time = get_average_time(
