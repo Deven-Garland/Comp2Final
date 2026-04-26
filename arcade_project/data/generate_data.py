@@ -9,7 +9,8 @@ PLAYER_FILE = "../data/synthetic_dataset/players.csv"
 SESSION_FILE = "../data/synthetic_dataset/sessions.csv"
 GAME_FILE = "../data/synthetic_dataset/games.csv"
 
-GAME_IDS = [1, 2, 3, 4]
+# Match the actual 5 games in your arcade.
+GAME_IDS = [1, 2, 3, 4, 5]
 
 
 # --------------------------
@@ -74,10 +75,11 @@ def generate_games():
 
         writer.writerow(["game_id", "game_name"])
 
-        writer.writerow([1, "GuessNumber"])
-        writer.writerow([2, "Chatroom"])
-        writer.writerow([3, "Memory"])
-        writer.writerow([4, "Pacman"])
+        writer.writerow([1, "mennah"])
+        writer.writerow([2, "deven"])
+        writer.writerow([3, "ellie"])
+        writer.writerow([4, "vraj"])
+        writer.writerow([5, "kimberly"])
 
 
 # --------------------------
