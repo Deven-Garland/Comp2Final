@@ -2,19 +2,19 @@ import time
 import random
 import matplotlib.pyplot as plt
 
-from platform_server.accounts import Accounts
+from platform_server.accounts import Account
 
 # Turn off file loading/saving so we only measure the data structures
-Accounts._load = lambda self: None
-Accounts._save = lambda self: None
+Account._load = lambda self: None
+Account._save = lambda self: None
 
 
 def build_accounts(n):
-    accounts = Accounts()
+    accounts = Account()
 
     for i in range(n):
         username = f"user{i}"
-        accounts.register(username, "password123")
+        account.register(username, "password123")
 
     return accounts
 
@@ -39,7 +39,7 @@ exists_times = []
 get_account_times = []
 
 for n in sizes:
-    accounts = build_accounts(n)
+    account = build_account(n)
     usernames = [f"user{i}" for i in range(n)]
 
     register_time = get_average_time(
@@ -58,7 +58,7 @@ for n in sizes:
     )
 
     get_account_time = get_average_time(
-        lambda: accounts.get_account(random.choice(usernames)),
+        lambda: account.get_account(random.choice(usernames)),
         trials
     )
 
