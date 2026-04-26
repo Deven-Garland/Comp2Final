@@ -2,7 +2,7 @@ import time
 import random
 import matplotlib.pyplot as plt
 
-from platform_server.accounts import Account
+from accounts import Account
 
 # Turn off file loading/saving so we only measure the data structures
 Account._load = lambda self: None
