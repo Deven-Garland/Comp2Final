@@ -28,6 +28,7 @@ from platform_server.data_ingest import DataIngest
 from platform_server.history import History
 from platform_server.leaderboard import Leaderboard
 from platform_server.matchmaking import Matchmaking
+from platform_server.player_search import PlayerSearch
 from platform_server.ratings import Ratings
 from datastructures.hash_table import HashTable
 
@@ -64,8 +65,35 @@ class PlatformServer:
         self.data_ingest = DataIngest(self.accounts, self.leaderboard, self.catalog)
         self.data_ingest.load_data()
 
+        # Build player search index from all loaded accounts
+        self.player_search = PlayerSearch()
+        for username in self.accounts.accounts:
+            account = self.accounts.get_account(username)
+            if account:
+                profile = {
+                    "name": account.username,
+                    "total_play_time": account.minutes_played,
+                    "games_played": 0,
+                    "win_rate": 0.0,
+                    "favorite_game": account.favorite_game,
+                    "messages_sent": account.messages_sent,
+                }
+                self.player_search.register(username, username, profile)
+
     def register(self, username, password):
-        return self.accounts.register(username, password)
+        result = self.accounts.register(username, password)
+        # Add new player to search index when they register
+        if result:
+            profile = {
+                "name": username,
+                "total_play_time": 0,
+                "games_played": 0,
+                "win_rate": 0.0,
+                "favorite_game": "",
+                "messages_sent": 0,
+            }
+            self.player_search.register(username, username, profile)
+        return result
 
     def login(self, username, password):
         return self.accounts.login(username, password)
@@ -230,6 +258,14 @@ class PlatformServer:
     def player_history(self, username):
         return self.history.get_player_history(username)
 
+    def search_players(self, prefix):
+        """Return list of player profiles whose name starts with prefix."""
+        return self.player_search.search_prefix(prefix)
+
+    def get_player_profile(self, username):
+        """Return a single player's full profile by exact username."""
+        return self.player_search.get_profile(username)
+
     # --- Favorite game -----------------------------------------------------
 
     def set_favorite(self, username, game_id):
@@ -324,6 +360,7 @@ class RequestDispatcher:
         "player_disconnected", "player_died",
         "record_session_result", "player_rank", "players_in_score_range",
         "rate_game", "get_rating_rankings", "get_highest_rated_game", "get_lowest_rated_game",
+        "search_players", "get_player_profile",
     )
 
     def __init__(self, platform):
