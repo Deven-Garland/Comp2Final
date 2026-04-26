@@ -18,7 +18,7 @@ from datastructures.patrol_path import PatrolPath
 import sys
 
 class Level:
-    def __init__(self, player_name, character_class, server_host='localhost', server_port=8080, serializer='text'):
+    def __init__(self, player_name, character_class, server_host='localhost', server_port=8080, serializer='json'):
         # Get the display surface
         self.display_surface = pygame.display.get_surface()
 
@@ -33,7 +33,7 @@ class Level:
         self.create_map()
 
         # Network setup with serializer
-        self.network = NetworkClient(player_name, server_host, server_port, serializer)
+        self.network = NetworkClient(player_name, server_host, server_port, serializer, game_id='kimberly')
         self.connected = self.network.connect()
 
         # Track other players
@@ -64,21 +64,21 @@ class Level:
         # Debug mode for showing enemy paths
         self.show_enemy_debug = False
 
-   def create_map(self):
-    """Create the game map and player"""
-    for row_index, row in enumerate(WORLD_MAP):
-        for col_index, col in enumerate(row):
-            x = col_index * TILESIZE
-            y = row_index * TILESIZE
-            if col == 'x':
-                Tile((x, y), [self.visible_sprites, self.obstacle_sprites])
-            if col == 'p':
-                self.player = self.character_class(
-                    (x, y),
-                    [self.visible_sprites],
-                    self.obstacle_sprites,
-                    is_local=True
-                )
+    def create_map(self):
+        """Create the game map and player"""
+        for row_index, row in enumerate(WORLD_MAP):
+            for col_index, col in enumerate(row):
+                x = col_index * TILESIZE
+                y = row_index * TILESIZE
+                if col == 'x':
+                    Tile((x, y), [self.visible_sprites, self.obstacle_sprites])
+                if col == 'p':
+                    self.player = self.character_class(
+                        (x, y),
+                        [self.visible_sprites],
+                        self.obstacle_sprites,
+                        is_local=True
+                    )
 
     def add_starting_items(self):
         """Add some starting items for testing"""

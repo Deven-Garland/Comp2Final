@@ -44,6 +44,7 @@ class GameServer {
 private:
     int server_socket;
     std::map<int, Player*> players;
+    std::map<int, std::string> player_games;
     Serializer* serializer;  // Polymorphic serializer!
     int next_player_id = 1;
     int port;
@@ -117,6 +118,7 @@ public:
             
             Player* p = new Player(player_id, default_name, 400, 300, client_socket);
             players[player_id] = p;
+            player_games[player_id] = "";
             
             // Send welcome with player ID
             std::string welcome = "CONNECTED|" + std::to_string(player_id) + "\n";
@@ -140,9 +142,9 @@ public:
                 buffer[n] = '\0';
                 std::string msg(buffer);
                 
-                // Parse: "UPDATE|player_id|x|y|name|character_type|status"
+                // Parse: "UPDATE|player_id|x|y|name|character_type|status|game_id"
                 std::istringstream ss(msg);
-                std::string type, id_str, x_str, y_str, name, character_type, status;
+                std::string type, id_str, x_str, y_str, name, character_type, status, game_id;
                 
                 std::getline(ss, type, '|');
                 std::getline(ss, id_str, '|');
@@ -150,7 +152,8 @@ public:
                 std::getline(ss, y_str, '|');
                 std::getline(ss, name, '|');
                 std::getline(ss, character_type, '|');
-                std::getline(ss, status);
+                std::getline(ss, status, '|');
+                std::getline(ss, game_id);
                 
                 if (type == "UPDATE") {
                     float new_x = std::stof(x_str);
@@ -168,6 +171,10 @@ public:
                     if (!status.empty()) {
                         p->set_status(status);
                     }
+
+                    if (!game_id.empty()) {
+                        player_games[p->get_id()] = game_id;
+                    }
                 }
             } else if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
                 std::cout << "\n[DISCONNECT] Player " << p->get_id() 
@@ -180,6 +187,7 @@ public:
         for (int id : disconnected) {
             delete players[id];
             players.erase(id);
+            player_games.erase(id);
             std::cout << "[STATUS] Total players: " << players.size() << "\n";
         }
     }
@@ -189,26 +197,30 @@ public:
             return;
         }
         
-        // Build state using serializer!
-        // Format: STATE||<player1_serialized>||<player2_serialized>||...
-        // Using || as separator to avoid conflicts with any serialization format
-        std::ostringstream state;
-        state << "STATE";
-        
-        for (auto& pair : players) {
-            Player* p = pair.second;
-            // Use polymorphic serialize()!
-            std::string serialized = serializer->serialize(*p);
-            state << "||" << serialized;
-        }
-        state << "\n";
-        
-        std::string msg = state.str();
-        
-        // Send to all
-        for (auto& pair : players) {
-            Player* p = pair.second;
-            send(p->get_socket(), msg.c_str(), msg.length(), 0);
+        // Build/sent a per-receiver state so players only see others in their game.
+        for (auto& receiver_pair : players) {
+            Player* receiver = receiver_pair.second;
+            int receiver_id = receiver->get_id();
+            std::string receiver_game = player_games[receiver_id];
+
+            std::ostringstream state;
+            state << "STATE";
+
+            for (auto& candidate_pair : players) {
+                Player* candidate = candidate_pair.second;
+                int candidate_id = candidate->get_id();
+                std::string candidate_game = player_games[candidate_id];
+
+                bool same_game = !receiver_game.empty() && receiver_game == candidate_game;
+                if (candidate_id == receiver_id || same_game) {
+                    std::string serialized = serializer->serialize(*candidate);
+                    state << "||" << serialized;
+                }
+            }
+            state << "\n";
+
+            std::string msg = state.str();
+            send(receiver->get_socket(), msg.c_str(), msg.length(), 0);
         }
     }
     

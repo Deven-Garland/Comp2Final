@@ -19,11 +19,12 @@ import struct
 from queue import Queue
 
 class NetworkClient:
-    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='json'):
+    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='json', game_id='ellie'):
         self.player_name = player_name
         self.server_host = server_host
         self.server_port = server_port
         self.serializer = serializer.lower()  # 'text', 'json', or 'binary'
+        self.game_id = game_id
         
         if self.serializer != 'json':
             raise ValueError(f"Invalid serializer: {serializer}. Must be 'json'")
@@ -199,7 +200,7 @@ class NetworkClient:
     def send_update(self, x, y, character_type="", status="down"):
         """Send our position, character type, and status to server (uses standard UPDATE format)"""
         if self.connected and self.my_player_id is not None:
-            msg = f"UPDATE|{self.my_player_id}|{x}|{y}|{self.player_name}|{character_type}|{status}\n"
+            msg = f"UPDATE|{self.my_player_id}|{x}|{y}|{self.player_name}|{character_type}|{status}|{self.game_id}\n"
             try:
                 self.sock.send(msg.encode('utf-8'))
             except:

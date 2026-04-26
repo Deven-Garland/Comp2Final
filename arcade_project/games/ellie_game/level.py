@@ -21,7 +21,7 @@ import sys
 
 
 class Level:
-    def __init__(self, player_name, character_class, server_host='localhost', server_port=8080, serializer='text'):
+    def __init__(self, player_name, character_class, server_host='localhost', server_port=8080, serializer='json'):
         # Get the display surface
         self.display_surface = pygame.display.get_surface()
 
@@ -41,7 +41,7 @@ class Level:
         self.create_map()
 
         # Network setup with serializer
-        self.network = NetworkClient(player_name, server_host, server_port, serializer)
+        self.network = NetworkClient(player_name, server_host, server_port, serializer, game_id='ellie')
         self.connected = self.network.connect()
 
         # Track other players
