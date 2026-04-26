@@ -3,18 +3,11 @@ client.py - Arcade client entry point
 
 Run:  python client.py
 
-Full stack (default on one machine):
-  - Python platform server (background thread) on SERVER_HOST:SERVER_PORT
-  - Optional C++ game servers when AUTO_START_CPP=1 and server_text exists
-
-Extra players (same ece or laptops) — connect to an already-running platform:
-  export ARCADE_CLIENT_ONLY=1
-  export ARCADE_PLATFORM_HOST=ece-hostname.cs.school.edu   # or 127.0.0.1 if SSH on ece
-  export ARCADE_PLATFORM_PORT=9000
-  python client.py
-
-Do NOT run two "full" client.py on the same host: port 9000 can only bind once.
-The host that runs the platform should also run C++ games (or set AUTO_START_CPP=1 there).
+How it works:
+  - Teammates on their laptops just run:  python3 client.py
+    It automatically connects to the platform server on the ECE machine.
+  - The person running the ECE server runs:  ./start.sh
+    That starts the platform server + all C++ game servers in the background.
 
 Authors: Team MOSFET
 Date: Spring 2026
@@ -37,18 +30,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "arcade_project"))
 from arcade_project.platform_server.server import run_server
 from arcade_project.client.arcade_client import ArcadeClient
 
-SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 9000
+# ECE server address — teammates' laptops connect here automatically
+ECE_HOST = "ece-000.eng.temple.edu"
+SERVER_HOST = os.environ.get("ARCADE_PLATFORM_HOST", ECE_HOST)
+SERVER_PORT = int(os.environ.get("ARCADE_PLATFORM_PORT", "9000"))
 
 _cpp_children: List[subprocess.Popen] = []
 
 
 def _client_only() -> bool:
+    # if start.sh already started the servers, just run the UI
     return os.environ.get("ARCADE_CLIENT_ONLY", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
+        "1", "true", "yes", "on",
     )
 
 
@@ -136,20 +129,19 @@ def stop_cpp_team_servers() -> None:
 
 def _team_game_servers() -> List[tuple]:
     """Host/ports for each teammate C++ server — must match cpp_server default_port_for_game."""
-    gh = os.environ.get("PLATFORM_GAME_HOST", SERVER_HOST)
     return [
-        ("mennah", gh, 50063),
-        ("deven", gh, 50064),
-        ("ellie", gh, 50072),
-        ("vraj", gh, 50077),
-        ("kimberly", gh, 50081),
+        ("mennah",   ECE_HOST, 50063),
+        ("deven",    ECE_HOST, 50064),
+        ("ellie",    ECE_HOST, 50072),
+        ("vraj",     ECE_HOST, 50077),
+        ("kimberly", ECE_HOST, 50081),
     ]
 
 
 def start_server() -> None:
     try:
         run_server(
-            host=SERVER_HOST,
+            host="0.0.0.0",        # listen on all interfaces so laptops can reach it
             port=SERVER_PORT,
             players_per_match=1,
             game_servers=_team_game_servers(),
@@ -159,19 +151,13 @@ def start_server() -> None:
 
 
 def main() -> None:
+    # ARCADE_CLIENT_ONLY=1 → just open the UI, servers already running via start.sh
     if _client_only():
-        gh = os.environ.get("ARCADE_PLATFORM_HOST", "127.0.0.1")
-        os.environ.setdefault("PLATFORM_GAME_HOST", gh)
-        print(
-            "[client] ARCADE_CLIENT_ONLY=1 — UI only; "
-            f"connecting to platform at {os.environ.get('ARCADE_PLATFORM_HOST', SERVER_HOST)}:"
-            f"{os.environ.get('ARCADE_PLATFORM_PORT', str(SERVER_PORT))}"
-        )
-        ArcadeClient().run()
+        print(f"[client] Connecting to platform at {SERVER_HOST}:{SERVER_PORT}")
+        ArcadeClient(host=SERVER_HOST, port=SERVER_PORT).run()
         return
 
-    os.environ.setdefault("PLATFORM_GAME_HOST", SERVER_HOST)
-
+    # Running on the ECE server via start.sh — start platform + optional C++ servers
     threading.Thread(target=start_server, daemon=True).start()
     time.sleep(0.35)
 
@@ -181,7 +167,7 @@ def main() -> None:
         atexit.register(stop_cpp_team_servers)
 
     try:
-        ArcadeClient().run()
+        ArcadeClient(host=SERVER_HOST, port=SERVER_PORT).run()
     finally:
         stop_cpp_team_servers()
 
