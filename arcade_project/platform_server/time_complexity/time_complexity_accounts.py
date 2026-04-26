@@ -75,7 +75,7 @@ for n in sizes:
     )
 
     get_account_time = get_average_time(
-        lambda: account.get_account(random.choice(usernames)),
+        lambda: accounts.get_account(random.choice(usernames)),
         trials
     )
 
