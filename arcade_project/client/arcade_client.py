@@ -6,7 +6,6 @@ Date: Spring 2026
 Lab: Final Project
 """
 
-import os
 import sys
 import time
 import threading
@@ -31,8 +30,14 @@ WINDOW_W = 1024
 WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
+<<<<<<< HEAD
 SERVER_HOST = os.environ.get("ARCADE_PLATFORM_HOST", "ece-000.eng.temple.edu")
 SERVER_PORT = int(os.environ.get("ARCADE_PLATFORM_PORT", "50070"))
+=======
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 9000
+
+>>>>>>> 4d76bdd2139aedf1c1094e1c4e69e33b8832023d
 GAME_LIST = [
     GameInfo("deven",    "Deven's Game",    "Fast reflex mini-game"),
     GameInfo("ellie",    "Ellie's Game",    "Puzzle challenge"),
@@ -76,7 +81,6 @@ class ArcadeClient:
             on_logout=self._handle_logout,
             on_stats=self._handle_stats,
             on_star=self._handle_star,
-            on_rate_stars=self._handle_rate_game,
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
@@ -116,7 +120,6 @@ class ArcadeClient:
                 self._username = username
                 self._login.set_status(f"Welcome back, {username}!", error=False)
                 self._load_favorite()
-                self._sync_game_ratings()
                 self._go_to(AppScreen.BROWSER)
             else:
                 self._login.set_status("Invalid username or password.", error=True)
@@ -133,8 +136,6 @@ class ArcadeClient:
                 self._username = username
                 self._conn.login(username, password)
                 self._login.set_status(f"Account created! Welcome, {username}!", error=False)
-                self._load_favorite()
-                self._sync_game_ratings()
                 self._go_to(AppScreen.BROWSER)
             else:
                 self._login.set_status("Username already taken.", error=True)
@@ -145,19 +146,6 @@ class ArcadeClient:
         try:
             fav = self._conn.get_favorite(self._username)
             self._browser.set_favorite(fav or "")
-        except Exception:
-            pass
-
-    def _sync_game_ratings(self) -> None:
-        if not self._connected:
-            return
-        try:
-            r = self._conn.get_rating_rankings()
-            if r.get("status") != "ok":
-                return
-            d = r.get("data")
-            if isinstance(d, list):
-                self._browser.set_average_ratings(d)
         except Exception:
             pass
 
@@ -195,16 +183,6 @@ class ArcadeClient:
         self._go_to(AppScreen.LOGIN)
 
     def _handle_stats(self) -> None:
-        game_ratings: list = []
-        try:
-            r = self._conn.get_rating_rankings()
-            if r.get("status") == "ok":
-                d = r.get("data")
-                if isinstance(d, list):
-                    game_ratings = d
-                    self._browser.set_average_ratings(d)
-        except Exception:
-            pass
         try:
             minutes = self._conn.get_minutes(self._username)
             fav_id = self._conn.get_favorite(self._username)
@@ -215,14 +193,12 @@ class ArcadeClient:
                 messages_sent=int(messages) if messages else 0,
                 favorite_game=fav_name,
                 minutes_played=int(minutes) if minutes else 0,
-                game_ratings=game_ratings,
             ))
         except Exception:
-            self._stats.set_stats(PlayerStats(game_ratings=game_ratings))
+            pass
         self._go_to(AppScreen.STATS)
 
     def _handle_back_to_browser(self) -> None:
-        self._sync_game_ratings()
         self._go_to(AppScreen.BROWSER)
 
     def _handle_star(self, game_id: str) -> None:
@@ -230,16 +206,6 @@ class ArcadeClient:
             self._conn.set_favorite(self._username, game_id)
         except Exception as e:
             print(f"[star] {e}")
-
-    def _handle_rate_game(self, game_id: str, stars: int) -> None:
-        try:
-            r = self._conn.rate_game(game_id, stars)
-            if r.get("status") == "ok":
-                self._sync_game_ratings()
-            else:
-                print(f"[ratings] {r.get('message', r)}")
-        except Exception as e:
-            print(f"[ratings] {e}")
 
     # --- Queue -------------------------------------------------------------
 
@@ -266,6 +232,8 @@ class ArcadeClient:
                     pass
             self._session_start_time = None
 
+        # FIX: tell the platform server the game is over so the session is
+        # cleared and a new player joining doesn't land in the ghost session
         if self._session_id:
             try:
                 self._conn._request("end_game", {
@@ -277,8 +245,10 @@ class ArcadeClient:
             except Exception as e:
                 print(f"[leave] end_game error: {e}")
 
+        # FIX: clear the session id on the connection so chat stops sending
         self._conn.clear_session()
 
+        # FIX: disconnect from C++ game server so the ghost player is removed
         if self._ellie_game is not None:
             try:
                 self._ellie_game.cleanup()
@@ -297,6 +267,7 @@ class ArcadeClient:
         self._session_id = session_id
         self._session_start_time = time.time()
 
+        # FIX: tell the connection which session we're in so send_chat works
         self._conn.set_session(session_id)
 
         game_name = next((g.name for g in GAME_LIST if g.id == self._current_game_id), self._current_game_id)
@@ -374,6 +345,9 @@ class ArcadeClient:
                 else:
                     active.handle_event(event)
                     if self._ellie_game and self._current == AppScreen.PLAY:
+                        # FIX: re-read focus AFTER active.handle_event so that
+                        # a click that focuses the chat input this frame also
+                        # blocks keyboard events (like SPACE) in the same frame.
                         chat_focused_now = self._play.chat_input_focused
                         if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION, pygame.MOUSEWHEEL):
                             self._ellie_game.handle_event(event)
@@ -383,6 +357,8 @@ class ArcadeClient:
             active.update(dt)
 
             if self._ellie_game and self._current == AppScreen.PLAY:
+                # FIX: tell the game whether chat is focused so it can
+                # suppress pygame.key.get_pressed() input at the source
                 self._ellie_game.chat_focused = self._play.chat_input_focused
                 try:
                     self._ellie_game.update(dt)

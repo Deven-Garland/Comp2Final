@@ -10,9 +10,9 @@ drawing and input.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import pygame
 
@@ -219,7 +219,6 @@ class BrowserScreen:
         on_logout: Callable[[], None],
         on_stats: Callable[[], None],
         on_star: Optional[Callable[[str], None]] = None,
-        on_rate_stars: Optional[Callable[[str, int], None]] = None,
         games: Optional[List[GameInfo]] = None,
     ):
         self.rect = rect
@@ -227,10 +226,7 @@ class BrowserScreen:
         self.on_logout = on_logout
         self.on_stats = on_stats
         self.on_star = on_star
-        self.on_rate_stars = on_rate_stars
         self.favorite_game_id = ""
-        # game_id -> community average (1–5), from server get_rating_rankings
-        self._avg_by_id: Dict[str, float] = {}
         self.games: List[GameInfo] = games or [
             GameInfo("deven", "Deven's Game", "Fast reflex mini-game"),
             GameInfo("ellie", "Ellie's Game", "Puzzle challenge"),
@@ -255,36 +251,10 @@ class BrowserScreen:
     def set_favorite(self, game_id: str) -> None:
         self.favorite_game_id = game_id
 
-    def set_average_ratings(self, rankings: List[dict]) -> None:
-        """Call with get_rating_rankings list of {\"game\", \"avg_rating\"}."""
-        self._avg_by_id = {}
-        for item in rankings or []:
-            gid = item.get("game")
-            if gid is not None:
-                try:
-                    self._avg_by_id[str(gid)] = float(item.get("avg_rating", 0) or 0)
-                except (TypeError, ValueError):
-                    self._avg_by_id[str(gid)] = 0.0
-
     def _star_rect_for_row(self, rr: pygame.Rect) -> pygame.Rect:
         return pygame.Rect(rr.right - 36, rr.centery - 14, 28, 28)
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        if event.type == pygame.KEYDOWN and self._selected is not None and self.on_rate_stars:
-            stars = None
-            if pygame.K_1 <= event.key <= pygame.K_5:
-                stars = event.key - pygame.K_0
-            else:
-                _kp = (
-                    (pygame.K_KP1, 1), (pygame.K_KP2, 2), (pygame.K_KP3, 3),
-                    (pygame.K_KP4, 4), (pygame.K_KP5, 5),
-                )
-                for k, s in _kp:
-                    if event.key == k:
-                        stars = s
-                        break
-            if stars is not None:
-                self.on_rate_stars(self.games[self._selected].id, stars)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self._btn_stats.contains(event.pos):
                 self.on_stats()
@@ -329,11 +299,7 @@ class BrowserScreen:
         pygame.draw.rect(surface, COLORS["bg"], self.rect)
         t = TITLE_FONT.render("Games", True, COLORS["text"])
         surface.blit(t, (self.rect.x + 24, self.rect.y + 24))
-        sub = SMALL_FONT.render(
-            "Select a game, 1–5 to rate stars, click circle to favorite, then find match.",
-            True,
-            COLORS["text_dim"],
-        )
+        sub = SMALL_FONT.render("Select a title, then find a match. Click the circle to favorite.", True, COLORS["text_dim"])
         surface.blit(sub, (self.rect.x + 24, self.rect.y + 72))
 
         pygame.draw.rect(surface, COLORS["panel"], self._list_rect, border_radius=10)
@@ -353,14 +319,9 @@ class BrowserScreen:
                 pygame.draw.rect(surface, COLORS["row_hover"], rr, border_radius=8)
 
             name = BODY_FONT.render(g.name, True, COLORS["text"])
-            surface.blit(name, (rr.x + 12, rr.y + 4))
-            if g.id in self._avg_by_id:
-                v = self._avg_by_id[g.id]
-                avg_t = SMALL_FONT.render(f"  ★ {v:.2f}/5", True, COLORS["accent_dim"])
-                rx = min(rr.right - 168, rr.x + 400)
-                surface.blit(avg_t, (rx, rr.y + 6))
+            surface.blit(name, (rr.x + 12, rr.y + 8))
             desc = SMALL_FONT.render(g.description[:80], True, COLORS["text_dim"])
-            surface.blit(desc, (rr.x + 12, rr.y + 28))
+            surface.blit(desc, (rr.x + 12, rr.y + 30))
 
             star_rect = self._star_rect_for_row(rr)
             is_fav = self.favorite_game_id == g.id
@@ -392,7 +353,6 @@ class PlayerStats:
     messages_sent: int = 0
     favorite_game: str = "None"
     minutes_played: int = 0
-    game_ratings: List[dict] = field(default_factory=list)
 
 
 def _format_minutes(minutes: int) -> str:
@@ -465,30 +425,6 @@ class StatsScreen:
             val_font = BODY_FONT if len(value) > 12 else TITLE_FONT
             val = val_font.render(value, True, COLORS["text"])
             surface.blit(val, (rr.x + 16, rr.y + 44))
-
-        ratings = self.stats.game_ratings or []
-        y0 = grid_top + 2 * (card_h + gap) + 20
-        sec = SMALL_FONT.render("COMMUNITY GAME RATINGS (avg. stars, 1–5)", True, COLORS["text_dim"])
-        surface.blit(sec, (self.rect.centerx - sec.get_width() // 2, y0))
-        y0 += 28
-        if not ratings:
-            hint = SMALL_FONT.render(
-                "  No data yet — rate games on the list (1–5 with a game selected) or check server.",
-                True,
-                COLORS["text_dim"],
-            )
-            surface.blit(hint, (self.rect.x + 32, y0))
-        else:
-            for r in ratings[:10]:
-                g = r.get("game", "?")
-                ar = r.get("avg_rating", 0)
-                try:
-                    arf = float(ar)
-                except (TypeError, ValueError):
-                    arf = 0.0
-                line = SMALL_FONT.render(f"  {g}  —  {arf:.2f} / 5", True, COLORS["text"])
-                surface.blit(line, (self.rect.x + 48, y0))
-                y0 += 22
 
         mp = pygame.mouse.get_pos()
         self._btn_back.draw(surface, self._btn_back.contains(mp))
@@ -614,7 +550,10 @@ class PlaySessionScreen:
     def handle_event(self, event: pygame.event.Event) -> None:
         self._input.handle_event(event)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self._btn_send.contains(event.pos):
+            # FIX: clicking in the game area unfocuses chat so player can move again
+            if self._game_rect.collidepoint(event.pos):
+                self._input.focused = False
+            elif self._btn_send.contains(event.pos):
                 self._submit_chat()
             elif self._btn_leave.contains(event.pos):
                 self.on_leave()
