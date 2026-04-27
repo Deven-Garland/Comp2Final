@@ -55,22 +55,99 @@ arcade_project/
     └── synthetic_dataset/             # CSV files (10,000+ players, 100,000+ sessions)
 ```
 
-## Running the Arcade (JSON + SSH Tunnel)
+## Running the Arcade (Exact Working Steps)
 
-This project is run with a remote server workflow:
+This is the exact two-port setup that works for this repo:
 
-1. Start the C++ game server on ECE with JSON serialization.
-2. Start the Python platform server on ECE.
-3. On your laptop, create SSH port forwarding.
-4. Run the local client/game process and connect to forwarded localhost ports.
+- Python platform server on ECE: `50070`
+- C++ gameplay server on ECE: `50072`
+- Local tunnel ports on laptop: `9000` (platform), `18080` (gameplay)
 
-Example SSH forward command:
+### 1) Start servers on ECE
+
+Open two terminals on `ece-000`.
+
+Terminal A (C++ gameplay server):
 
 ```bash
-ssh -L 8006:localhost:8005 your_username@ece-000.eng.temple.edu -N
+cd ~/ece3822-spring-assignments/Comp2Final/arcade_project/cpp_server
+make SERIALIZER=JSON
+./server_json --port 50072
 ```
 
-Then launch a client locally and target `localhost` with the forwarded port.
+Terminal B (Python platform server):
+
+```bash
+cd ~/ece3822-spring-assignments/Comp2Final
+python3 platform_runner.py
+```
+
+You should see:
+
+- `Game Server Started ... Port: 50072 ... Serializer: JSON`
+- `Platform server listening on 0.0.0.0:50070`
+
+### 2) Start SSH tunnel on your laptop (Windows PowerShell)
+
+Open a new terminal and keep it open while playing:
+
+```powershell
+ssh -o ExitOnForwardFailure=yes -L 9000:127.0.0.1:50070 -L 18080:127.0.0.1:50072 your_username@ece-000.eng.temple.edu -N
+```
+
+### 3) Verify tunnel locally
+
+In another local terminal:
+
+```powershell
+Test-NetConnection 127.0.0.1 -Port 9000
+```
+
+Expected:
+
+- `TcpTestSucceeded : True`
+
+Optional protocol check:
+
+```powershell
+python -c "import socket,json; s=socket.create_connection(('127.0.0.1',9000),5); s.sendall((json.dumps({'action':'list_games'})+'\n').encode()); print(s.recv(4096).decode()); s.close()"
+```
+
+### 4) Launch the local client
+
+Because gameplay is tunneled to local `18080`, set env vars before launching:
+
+```powershell
+cd C:\Users\deven\ece3822-spring-assignments\Comp2Final
+$env:ARCADE_GAME_HOST="127.0.0.1"
+$env:ARCADE_GAME_PORT="18080"
+python .\client.py
+```
+
+### 5) Matchmaking behavior
+
+- Queue requires 2 players (`players_per_match=2`), so one client will wait.
+- Open a second client and queue to start a match.
+
+### Common issues and fixes
+
+- `Address already in use` on ECE port `50070` or `50072`:
+
+```bash
+pkill -f platform_runner.py
+pkill -f server_json
+pkill -f server_text
+```
+
+- `bind [127.0.0.1]:8080: Permission denied` on Windows:
+  - Use local port `18080` in tunnel command (already shown above).
+
+- `Could not reach server` on login:
+  - Tunnel terminal was closed, or client not pointing at local tunnel endpoint.
+
+- Chat works but game says disconnected:
+  - Platform tunnel is fine, but gameplay port mismatch.
+  - Ensure `ARCADE_GAME_PORT=18080` before running `client.py`.
 
 ## Generating the UML Diagram with pyreverse
 
