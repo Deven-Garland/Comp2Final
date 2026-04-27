@@ -102,7 +102,7 @@ class EllieGame:
                 char_class,
                 server_host=GAME_SERVER_HOST,
                 server_port=GAME_SERVER_PORT,
-                serializer="text",
+                serializer="json",
             )
             self.level.display_surface = self.surface
             self.level.visible_sprites.display_surface = self.surface

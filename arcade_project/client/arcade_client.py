@@ -32,8 +32,8 @@ WINDOW_W = 1024
 WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
-SERVER_HOST = "18.208.36.230"
-SERVER_PORT = 50064
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 9000
 
 GAME_LIST = [
     GameInfo("deven",    "Deven's Game",    "Fast reflex mini-game"),
@@ -179,8 +179,10 @@ class ArcadeClient:
         self._go_to(AppScreen.QUEUE)
         try:
             resp = self._conn.join_queue()
-            if resp.get("status") == "ok":
+            if resp.get("status") == "ok" and resp.get("data") is True:
                 self._queue.set_detail("In queue — waiting for opponent...")
+            elif resp.get("status") == "ok":
+                self._queue.set_detail("Queue rejected by server (are you logged in?).")
             else:
                 self._queue.set_detail(f"Error: {resp.get('message', 'Queue failed')}")
         except Exception as e:
@@ -357,6 +359,11 @@ class ArcadeClient:
         if self._current == AppScreen.QUEUE:
             try:
                 resp = self._conn._request("try_create_match", {"username": self._username})
+                # Backward compatibility: some server copies still use try_create_match() with no params.
+                if resp.get("status") != "ok":
+                    message = str(resp.get("message", ""))
+                    if "bad request parameters" in message:
+                        resp = self._conn._request("try_create_match")
                 if resp.get("status") == "ok":
                     data = resp.get("data") or {}
                     session_id = data.get("game_id") if isinstance(data, dict) else None
