@@ -18,11 +18,16 @@ Lab: Final Project - Algorithm One
 
 import json
 import os
+import hashlib
+import hmac
+import secrets
 
 from datastructures.hash_table import HashTable
 from datastructures.bloom_filter import BloomFilter
 
 ACCOUNTS_FILE = os.path.join(os.path.dirname(__file__), "accounts_data.json")
+HASH_PREFIX = "pbkdf2_sha256"
+PBKDF2_ITERATIONS = 120000
 
 
 class Account:
@@ -45,6 +50,47 @@ class Accounts:
         self.accounts = HashTable()
         self.username_filter = BloomFilter()
         self._load()
+        self._migrate_plaintext_passwords()
+
+    def _is_hashed(self, value):
+        return isinstance(value, str) and value.startswith(f"{HASH_PREFIX}$")
+
+    def _hash_password(self, password, salt=None):
+        if salt is None:
+            salt = secrets.token_hex(16)
+        digest = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            bytes.fromhex(salt),
+            PBKDF2_ITERATIONS,
+        ).hex()
+        return f"{HASH_PREFIX}${PBKDF2_ITERATIONS}${salt}${digest}"
+
+    def _verify_password(self, stored_password, provided_password):
+        if not self._is_hashed(stored_password):
+            # Backward compatibility for legacy plaintext entries.
+            return stored_password == provided_password
+        try:
+            _, iterations, salt, expected = stored_password.split("$", 3)
+            digest = hashlib.pbkdf2_hmac(
+                "sha256",
+                provided_password.encode("utf-8"),
+                bytes.fromhex(salt),
+                int(iterations),
+            ).hex()
+            return hmac.compare_digest(digest, expected)
+        except Exception:
+            return False
+
+    def _migrate_plaintext_passwords(self):
+        updated = False
+        for username in self.accounts:
+            account = self.accounts[username]
+            if not self._is_hashed(account.password):
+                account.password = self._hash_password(account.password)
+                updated = True
+        if updated:
+            self._save()
 
     def _load(self):
         if not os.path.exists(ACCOUNTS_FILE):
@@ -89,7 +135,7 @@ class Accounts:
         if self.username_filter.contains(username):
             if username in self.accounts:
                 return False
-        account = Account(username, password)
+        account = Account(username, self._hash_password(password))
         self.accounts[username] = account
         self.username_filter.add(username)
         self._save()
@@ -98,7 +144,13 @@ class Accounts:
     def login(self, username, password):
         if username not in self.accounts:
             return False
-        return self.accounts[username].password == password
+        account = self.accounts[username]
+        ok = self._verify_password(account.password, password)
+        if ok and not self._is_hashed(account.password):
+            # On successful login of a legacy account, upgrade to hashed format.
+            account.password = self._hash_password(password)
+            self._save()
+        return ok
 
     def get_account(self, username):
         if username not in self.accounts:

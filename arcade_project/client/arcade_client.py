@@ -80,6 +80,7 @@ class ArcadeClient:
             on_stats=self._handle_stats,
             on_leaderboard=self._handle_leaderboard,
             on_star=self._handle_star,
+            on_rate=self._handle_rate,
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
@@ -138,6 +139,7 @@ class ArcadeClient:
                 self._username = username
                 self._login.set_status(f"Welcome back, {username}!", error=False)
                 self._load_favorite()
+                self._load_ratings()
                 self._go_to(AppScreen.BROWSER)
             else:
                 self._login.set_status("Invalid username or password.", error=True)
@@ -157,6 +159,8 @@ class ArcadeClient:
                 self._username = username
                 self._conn.login(username, password)
                 self._login.set_status(f"Account created! Welcome, {username}!", error=False)
+                self._load_favorite()
+                self._load_ratings()
                 self._go_to(AppScreen.BROWSER)
             else:
                 self._login.set_status("Username already taken.", error=True)
@@ -170,6 +174,20 @@ class ArcadeClient:
             self._browser.set_favorite(fav or "")
         except Exception:
             pass
+
+    def _load_ratings(self) -> None:
+        try:
+            resp = self._conn.get_rating_rankings()
+            ratings = {}
+            if resp.get("status") == "ok":
+                for row in resp.get("data") or []:
+                    game = row.get("game")
+                    avg = row.get("avg_rating", 0)
+                    if game:
+                        ratings[game] = float(avg)
+            self._browser.set_ratings(ratings)
+        except Exception:
+            self._browser.set_ratings({})
 
     def _handle_play(self, game_id: str) -> None:
         self._current_game_id = game_id
@@ -267,6 +285,18 @@ class ArcadeClient:
             self._conn.set_favorite(self._username, game_id)
         except Exception as e:
             print(f"[star] {e}")
+
+    def _handle_rate(self, game_id: str, stars: int) -> bool:
+        try:
+            resp = self._conn.rate_game(game_id, stars)
+            ok = resp.get("status") == "ok"
+            if ok:
+                self._browser.set_user_rating(game_id, stars)
+                self._load_ratings()
+            return ok
+        except Exception as e:
+            print(f"[rate] {e}")
+            return False
 
     def _handle_cancel_queue(self) -> None:
         self._ellie_game = None

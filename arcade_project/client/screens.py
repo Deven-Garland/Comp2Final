@@ -10,9 +10,10 @@ drawing and input.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import pygame
 
@@ -220,6 +221,7 @@ class BrowserScreen:
         on_stats: Callable[[], None],
         on_leaderboard: Callable[[], None],
         on_star: Optional[Callable[[str], None]] = None,
+        on_rate: Optional[Callable[[str, int], bool]] = None,
         games: Optional[List[GameInfo]] = None,
     ):
         self.rect = rect
@@ -228,7 +230,10 @@ class BrowserScreen:
         self.on_stats = on_stats
         self.on_leaderboard = on_leaderboard
         self.on_star = on_star
+        self.on_rate = on_rate
         self.favorite_game_id = ""
+        self.game_ratings: Dict[str, float] = {}
+        self.user_ratings: Dict[str, int] = {}
         self.games: List[GameInfo] = games or [
             GameInfo("deven", "Deven's Game", "Fast reflex mini-game"),
             GameInfo("ellie", "Ellie's Game", "Puzzle challenge"),
@@ -236,6 +241,8 @@ class BrowserScreen:
             GameInfo("mennah", "Mennah's Game", "Strategy lite"),
             GameInfo("vraj", "Vraj's Game", "Endless runner"),
         ]
+        self._star_icon = None
+        self._load_star_icon()
         self._selected: Optional[int] = None
         self._scroll = 0
         self._hover_row = -1
@@ -254,8 +261,37 @@ class BrowserScreen:
     def set_favorite(self, game_id: str) -> None:
         self.favorite_game_id = game_id
 
+    def set_ratings(self, ratings: Dict[str, float]) -> None:
+        self.game_ratings = ratings or {}
+
+    def set_user_rating(self, game_id: str, stars: int) -> None:
+        self.user_ratings[game_id] = max(1, min(5, int(stars)))
+
+    def _load_star_icon(self) -> None:
+        # Try common asset locations, including the team's existing Graphic/star.png.
+        root = Path(__file__).resolve().parents[2]
+        candidates = [
+            root / "arcade_project" / "Graphic" / "star.png",
+            root / "assets" / "star_rating.png",
+        ]
+        for candidate in candidates:
+            if not candidate.exists():
+                continue
+            try:
+                self._star_icon = pygame.image.load(str(candidate)).convert_alpha()
+                self._star_icon = pygame.transform.smoothscale(self._star_icon, (16, 16))
+                return
+            except Exception:
+                self._star_icon = None
+
     def _star_rect_for_row(self, rr: pygame.Rect) -> pygame.Rect:
         return pygame.Rect(rr.right - 36, rr.centery - 14, 28, 28)
+
+    def _rating_rect_for_row(self, rr: pygame.Rect) -> pygame.Rect:
+        return pygame.Rect(rr.right - 116, rr.centery - 10, 74, 20)
+
+    def _rating_click_rect_for_row(self, rr: pygame.Rect) -> pygame.Rect:
+        return pygame.Rect(rr.right - 228, rr.centery - 10, 106, 20)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -275,9 +311,17 @@ class BrowserScreen:
                 if 0 <= idx < len(self.games):
                     ry = self._list_rect.y - self._scroll + idx * row_h
                     rr = pygame.Rect(self._list_rect.x + 4, ry + 4, self._list_rect.width - 8, row_h - 8)
+                    gid = self.games[idx].id
+                    rating_click_rect = self._rating_click_rect_for_row(rr)
+                    if rating_click_rect.collidepoint(event.pos) and self.on_rate:
+                        relative_x = event.pos[0] - rating_click_rect.x
+                        stars = max(1, min(5, int(relative_x // 20) + 1))
+                        result = self.on_rate(gid, stars)
+                        if result is not False:
+                            self.set_user_rating(gid, stars)
+                        return
                     star_rect = self._star_rect_for_row(rr)
                     if star_rect.collidepoint(event.pos) and self.on_star:
-                        gid = self.games[idx].id
                         if self.favorite_game_id == gid:
                             self.favorite_game_id = ""
                             self.on_star("")
@@ -304,7 +348,7 @@ class BrowserScreen:
         pygame.draw.rect(surface, COLORS["bg"], self.rect)
         t = TITLE_FONT.render("Games", True, COLORS["text"])
         surface.blit(t, (self.rect.x + 24, self.rect.y + 24))
-        sub = SMALL_FONT.render("Select a title, then find a match. Click the circle to favorite.", True, COLORS["text_dim"])
+        sub = SMALL_FONT.render("Select a title, then find a match. Star + number is average rating. Circle toggles favorite.", True, COLORS["text_dim"])
         surface.blit(sub, (self.rect.x + 24, self.rect.y + 72))
 
         pygame.draw.rect(surface, COLORS["panel"], self._list_rect, border_radius=10)
@@ -327,6 +371,38 @@ class BrowserScreen:
             surface.blit(name, (rr.x + 12, rr.y + 8))
             desc = SMALL_FONT.render(g.description[:80], True, COLORS["text_dim"])
             surface.blit(desc, (rr.x + 12, rr.y + 30))
+
+            rating = float(self.game_ratings.get(g.id, 0.0))
+            rating_rect = self._rating_rect_for_row(rr)
+            if self._star_icon is not None:
+                surface.blit(self._star_icon, (rating_rect.x, rating_rect.y + 2))
+            else:
+                # Fallback when star PNG is not present.
+                points = []
+                cx, cy = rating_rect.x + 8, rating_rect.y + 10
+                for n in range(10):
+                    ang = math.radians(-90 + n * 36)
+                    rad = 7 if n % 2 == 0 else 3
+                    points.append((cx + math.cos(ang) * rad, cy + math.sin(ang) * rad))
+                pygame.draw.polygon(surface, COLORS["star"], points)
+            rt = SMALL_FONT.render(f"{rating:.1f}", True, COLORS["text"])
+            surface.blit(rt, (rating_rect.x + 20, rating_rect.y + 1))
+
+            # Clickable 1-5 personal rating control.
+            selected = int(self.user_ratings.get(g.id, 0))
+            rating_click_rect = self._rating_click_rect_for_row(rr)
+            for star_idx in range(1, 6):
+                sx = rating_click_rect.x + (star_idx - 1) * 20 + 8
+                sy = rating_click_rect.y + 10
+                points = []
+                for n in range(10):
+                    ang = math.radians(-90 + n * 36)
+                    rad = 7 if n % 2 == 0 else 3
+                    points.append((sx + math.cos(ang) * rad, sy + math.sin(ang) * rad))
+                if star_idx <= selected:
+                    pygame.draw.polygon(surface, COLORS["star"], points)
+                else:
+                    pygame.draw.polygon(surface, COLORS["border"], points, 1)
 
             star_rect = self._star_rect_for_row(rr)
             is_fav = self.favorite_game_id == g.id
