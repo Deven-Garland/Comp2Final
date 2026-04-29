@@ -18,5 +18,7 @@ __pycache__/
 .Python
 __pycache__/
 *.pyc
+arcade_project/platform_server/accounts_data.json
+arcade_project/platform_server/runtime_state.json
 
 .env
