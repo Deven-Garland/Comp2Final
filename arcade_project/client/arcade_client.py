@@ -320,10 +320,14 @@ class ArcadeClient:
 
     def _handle_send_chat(self, text: str) -> None:
         try:
-            self._conn.send_chat(text, game=self._current_game_id or "global")
+            resp = self._conn.send_chat(text, game=self._current_game_id or "global")
+            if resp.get("status") == "ok" and resp.get("data") is True:
+                self._play.add_chat(self._username, text)
+            else:
+                self._play.add_chat("server", "Message blocked or not delivered.")
         except Exception as e:
             print(f"[chat] send error: {e}")
-        self._play.add_chat(self._username, text)
+            self._play.add_chat("server", "Message failed to send.")
 
     def _handle_leave(self, reason: str = "disconnect") -> None:
         if self._session_start_time is not None:
@@ -424,7 +428,11 @@ class ArcadeClient:
 
         elif self._current == AppScreen.PLAY and self._session_id:
             try:
-                resp = self._conn._request("get_chat", {"game_id": self._session_id})
+                try:
+                    game_id = int(self._session_id)
+                except (TypeError, ValueError):
+                    game_id = self._session_id
+                resp = self._conn._request("get_chat", {"game_id": game_id})
                 if resp.get("status") == "ok":
                     data = resp.get("data") or {}
                     messages = data.get("messages", []) if isinstance(data, dict) else []

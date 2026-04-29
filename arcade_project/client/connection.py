@@ -180,7 +180,10 @@ class ServerConnection:
         return None
 
     def set_session(self, session_id):
-        self._session_id = session_id
+        try:
+            self._session_id = int(session_id)
+        except (TypeError, ValueError):
+            self._session_id = session_id
 
     def clear_session(self):
         self._session_id = None
@@ -188,8 +191,13 @@ class ServerConnection:
     # --- Chat --------------------------------------------------------------
 
     def send_chat(self, message, game="global", recipient=None):
+        game_id = self._session_id
+        try:
+            game_id = int(game_id) if game_id is not None else None
+        except (TypeError, ValueError):
+            pass
         payload = {
-            "game_id": self._session_id,
+            "game_id": game_id,
             "username": self._username,
             "text": message,
             "game": game,
@@ -197,6 +205,10 @@ class ServerConnection:
         return self._request("send_message", payload)
 
     def poll_chat(self, session_id):
+        try:
+            session_id = int(session_id)
+        except (TypeError, ValueError):
+            pass
         resp = self._request("get_chat", {"game_id": session_id})
         if resp.get("status") == "ok":
             return resp.get("data") or []
