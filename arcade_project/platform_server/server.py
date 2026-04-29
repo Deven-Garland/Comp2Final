@@ -86,7 +86,10 @@ class PlatformServer:
         self.chat = Chat()
         self.games = GameRegistry(game_servers)
         self.game_connector = GameConnector(self.games)
-        self.ratings = Ratings(sorted(self.games.game_servers.keys()))
+        game_names = ArrayList()
+        for game_name in self.games.game_servers:
+            game_names.append(game_name)
+        self.ratings = Ratings(game_names)
         self.players_per_match = players_per_match
         self.max_players_per_instance = DEFAULT_MAX_PLAYERS_PER_INSTANCE
         self.next_game_id = 1
