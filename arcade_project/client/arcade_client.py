@@ -528,7 +528,8 @@ class ArcadeClient:
                 try:
                     self._ellie_game.update(dt)
                     if self._ellie_game.state == "done":
-                        self._handle_leave(reason="death")
+                        reason = getattr(self._ellie_game, "leave_reason", None) or "death"
+                        self._handle_leave(reason=reason)
                 except Exception as e:
                     print(f"[ellie_game] update error: {e}")
 
