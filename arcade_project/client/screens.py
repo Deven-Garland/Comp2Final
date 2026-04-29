@@ -826,9 +826,9 @@ class PlaySessionScreen:
         pad = 12
         self._history_rect = pygame.Rect(
             self._chat_rect.x + pad,
-            self._chat_rect.y + 52,
+            self._chat_rect.y + 70,
             self._chat_rect.width - 2 * pad,
-            self._chat_rect.height - 120,
+            self._chat_rect.height - 138,
         )
         self._input = TextInput(
             pygame.Rect(
