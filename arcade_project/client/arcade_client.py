@@ -214,6 +214,14 @@ class ArcadeClient:
         self._go_to(AppScreen.QUEUE)
         try:
             resp = self._conn.join_queue(self._current_game_id or "global")
+            # Backward compatibility: older platform servers accept join_queue(username) only.
+            if resp.get("status") != "ok":
+                message = str(resp.get("message", ""))
+                if "unexpected keyword argument 'game'" in message or "bad request parameters" in message:
+                    resp = self._conn._request(
+                        "join_queue",
+                        self._conn._payload((("username", self._username),)),
+                    )
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._queue.set_detail("In queue — waiting for opponent...")
             elif resp.get("status") == "ok":
