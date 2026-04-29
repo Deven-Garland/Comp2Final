@@ -15,7 +15,7 @@ CPP_GAME_PORT = 50072
 run_server(
     host="0.0.0.0",
     port=PLATFORM_PORT,
-    players_per_match=2,
+    players_per_match=1,
     game_servers=[
         # Two-server setup: all games route to one shared C++ gameplay server.
         ("mennah", ECE_HOST, CPP_GAME_PORT),
