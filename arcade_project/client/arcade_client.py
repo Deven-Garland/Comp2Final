@@ -414,6 +414,7 @@ class ArcadeClient:
             on_send_chat=self._handle_send_chat,
             on_leave=self._handle_leave,
         )
+        self._play.set_chat_channel(self._current_game_id or session_id)
         self._play.add_chat("server", "Match found! Game starting...")
         self._chat_shown.clear()
 

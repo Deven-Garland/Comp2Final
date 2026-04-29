@@ -189,7 +189,12 @@ class ServerConnection:
     # --- Matchmaking -------------------------------------------------------
 
     def join_queue(self, game="global", skill_rating=1000):
-        return self._request("join_queue", self._payload((("username", self._username), ("game", game))))
+        response = self._request("join_queue", self._payload((("username", self._username), ("game", game))))
+        if response.get("status") != "ok":
+            message = str(response.get("message", ""))
+            if "unexpected keyword argument 'game'" in message or "bad request parameters" in message:
+                response = self._request("join_queue", self._payload((("username", self._username),)))
+        return response
 
     def leave_queue(self):
         pass
