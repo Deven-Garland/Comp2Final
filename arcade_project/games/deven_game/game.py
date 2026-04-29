@@ -156,26 +156,24 @@ class DevenGame:
             self.cleanup()
             self.state = "done"
             return
-        with self._asset_context():
-            self.level.handle_events([event])
-            self.level.handle_time_travel_input([event])
-            self.level.handle_enemy_debug_input([event])
+        self.level.handle_events([event])
+        self.level.handle_time_travel_input([event])
+        self.level.handle_enemy_debug_input([event])
 
     def update(self, dt: float):
         if self.state != "play" or not self.level:
             return
-        with self._asset_context():
-            self.level.player.input_enabled = not self.chat_focused
-            self.level.player.update()
-            for other in self.level.other_players.values():
-                other.update()
-            if not self.level.is_time_traveling:
-                for enemy in tuple(self.level.enemies):
-                    enemy.enemy_update(self.level.player)
-                self.level.enemies.update()
-                self.level.player_attack_logic()
-            self.level.record_player_state()
-            self.level.update_network()
+        self.level.player.input_enabled = not self.chat_focused
+        self.level.player.update()
+        for other in self.level.other_players.values():
+            other.update()
+        if not self.level.is_time_traveling:
+            for enemy in tuple(self.level.enemies):
+                enemy.enemy_update(self.level.player)
+            self.level.enemies.update()
+            self.level.player_attack_logic()
+        self.level.record_player_state()
+        self.level.update_network()
 
     def draw(self):
         if self.state == "select":
@@ -183,15 +181,14 @@ class DevenGame:
             return
         if not self.level:
             return
-        with self._asset_context():
-            self.surface.fill((0, 0, 0))
-            self.level.visible_sprites.custom_draw(self.level.player)
-            self.level.draw_names()
-            self.level.draw_status()
-            self.level.draw_time_travel_ui()
-            self.level.draw_enemy_debug()
-            if self.level.inventory_ui.active:
-                self.level.inventory_ui.draw(self.surface)
+        self.surface.fill((0, 0, 0))
+        self.level.visible_sprites.custom_draw(self.level.player)
+        self.level.draw_names()
+        self.level.draw_status()
+        self.level.draw_time_travel_ui()
+        self.level.draw_enemy_debug()
+        if self.level.inventory_ui.active:
+            self.level.inventory_ui.draw(self.surface)
         self._leave_btn = pygame.Rect(self.surface.get_width() - 96, 8, 88, 30)
         pygame.draw.rect(self.surface, (180, 60, 60), self._leave_btn, border_radius=6)
         label = pygame.font.Font(None, 18).render("Leave Game", True, (240, 240, 245))
@@ -229,13 +226,15 @@ class DevenGame:
             rr = pygame.Rect(rx, y0, card_w, card_h)
             pygame.draw.rect(self.surface, (30, 34, 50), rr, border_radius=10)
             pygame.draw.rect(self.surface, (94, 234, 212) if i == self.selected_idx else (76, 76, 100), rr, 2, border_radius=10)
-            image = None
-            try:
-                with self._asset_context():
-                    image = pygame.image.load(cls.get_preview_image()).convert_alpha()
-                    image = pygame.transform.smoothscale(image, (68, 68))
-            except Exception:
-                image = None
+            image = getattr(cls, "_preview_surface_cached", None)
+            if image is None:
+                try:
+                    with self._asset_context():
+                        image = pygame.image.load(cls.get_preview_image()).convert_alpha()
+                        image = pygame.transform.smoothscale(image, (68, 68))
+                except Exception:
+                    image = None
+                setattr(cls, "_preview_surface_cached", image)
             if image is not None:
                 self.surface.blit(image, image.get_rect(center=(rr.centerx, rr.y + 42)))
             name = cls.get_display_name() if hasattr(cls, "get_display_name") else cls.__name__
