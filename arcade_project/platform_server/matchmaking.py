@@ -21,8 +21,9 @@ from datastructures.array import ArrayList
  
  
 class QueueEntry:
-    def __init__(self, username):
+    def __init__(self, username, game_id="global"):
         self.username = username
+        self.game_id = game_id
         self.time = time.time()
  
     def __lt__(self, other):
@@ -37,18 +38,31 @@ class Matchmaking:
         self.heap = MinHeap()
         self.match_history = ArrayList()
  
-    def join_queue(self, username):
-        self.heap.insert(QueueEntry(username))
+    def join_queue(self, username, game_id="global"):
+        self.heap.insert(QueueEntry(username, game_id))
  
-    def match_players(self, count=2):
+    def match_players(self, count=2, game_id=None):
         if self.heap.get_size() < count:
             return ArrayList()
  
+        if game_id is None:
+            game_id = "global"
+
         result = ArrayList()
+        skipped = ArrayList()
  
-        for i in range(count):
+        while self.heap.get_size() > 0 and len(result) < count:
             entry = self.heap.remove_min()
-            result.append(entry.username)
+            if entry.game_id == game_id:
+                result.append(entry.username)
+            else:
+                skipped.append(entry)
+
+        for entry in skipped:
+            self.heap.insert(entry)
+
+        if len(result) < count:
+            return ArrayList()
  
         self.match_history.append(result)
         return result

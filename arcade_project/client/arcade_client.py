@@ -213,7 +213,7 @@ class ArcadeClient:
         self._queue.set_detail("Talking to matchmaker...")
         self._go_to(AppScreen.QUEUE)
         try:
-            resp = self._conn.join_queue()
+            resp = self._conn.join_queue(self._current_game_id or "global")
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._queue.set_detail("In queue — waiting for opponent...")
             elif resp.get("status") == "ok":
@@ -425,7 +425,13 @@ class ArcadeClient:
     def _poll_server(self) -> None:
         if self._current == AppScreen.QUEUE:
             try:
-                resp = self._conn._request("try_create_match", {"username": self._username})
+                resp = self._conn._request(
+                    "try_create_match",
+                    self._conn._payload((
+                        ("username", self._username),
+                        ("game", self._current_game_id or "global"),
+                    )),
+                )
                 # Backward compatibility: some server copies still use try_create_match() with no params.
                 if resp.get("status") != "ok":
                     message = str(resp.get("message", ""))
@@ -481,7 +487,11 @@ class ArcadeClient:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._running = False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_l:
+                elif (
+                    event.type == pygame.KEYDOWN
+                    and event.key == pygame.K_TAB
+                    and self._current in (AppScreen.PLAY, AppScreen.LEADERBOARD)
+                ):
                     self._toggle_leaderboard_hotkey()
                 else:
                     active.handle_event(event)

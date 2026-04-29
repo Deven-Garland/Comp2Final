@@ -231,13 +231,13 @@ class PlatformServer:
     def login(self, username, password):
         return self.accounts.login(username, password)
 
-    def join_queue(self, username):
+    def join_queue(self, username, game="global"):
         if not self.accounts.exists(username):
             return False
-        self.matchmaking.join_queue(username)
+        self.matchmaking.join_queue(username, game)
         return True
 
-    def try_create_match(self, username=None):
+    def try_create_match(self, username=None, game="global"):
         # If this player already has a pending match, return it
         if username and username in self.pending_matches:
             game_id = self.pending_matches[username]
@@ -248,7 +248,7 @@ class PlatformServer:
             match_data["players"] = tuple(one_player)
             return match_data
 
-        players = self.matchmaking.match_players(self.players_per_match)
+        players = self.matchmaking.match_players(self.players_per_match, game)
         if len(players) == 0:
             return None
         game_id = self._get_or_create_available_instance(len(players))

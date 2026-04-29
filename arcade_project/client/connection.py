@@ -188,8 +188,8 @@ class ServerConnection:
 
     # --- Matchmaking -------------------------------------------------------
 
-    def join_queue(self, skill_rating=1000):
-        return self._request("join_queue", self._payload((("username", self._username),)))
+    def join_queue(self, game="global", skill_rating=1000):
+        return self._request("join_queue", self._payload((("username", self._username), ("game", game))))
 
     def leave_queue(self):
         pass
