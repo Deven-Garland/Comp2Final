@@ -86,6 +86,21 @@ class PlatformServer:
                 }
                 self.player_search.register(username, username, profile)
 
+    def _sync_player_search_profile(self, username):
+        """Refresh one player's searchable profile from account data."""
+        account = self.accounts.get_account(username)
+        if not account:
+            return
+        profile = {
+            "name": account.username,
+            "total_play_time": account.minutes_played,
+            "games_played": self._get_counter_value("global:sessions", username),
+            "win_rate": 0.0,
+            "favorite_game": account.favorite_game,
+            "messages_sent": account.messages_sent,
+        }
+        self.player_search.register(username, username, profile)
+
     def _serialize_game_counters(self):
         data = {}
         for board_name in self.game_counters:
@@ -245,6 +260,7 @@ class PlatformServer:
         self.accounts.add_message(username)
         self._increment_board_score(f"{game}:chats", username, 1)
         self._increment_board_score("global:chats", username, 1)
+        self._sync_player_search_profile(username)
         self._save_runtime_state()
         return True
 
@@ -342,12 +358,14 @@ class PlatformServer:
         self._set_board_score(f"{game}:score", username, score)
         self._increment_board_score(f"{game}:play_time", username, play_time)
         self._increment_board_score(f"{game}:sessions", username, 1)
+        self._increment_board_score("global:sessions", username, 1)
         if chats_delta:
             self._increment_board_score(f"{game}:chats", username, chats_delta)
         if deaths_delta:
             self._increment_board_score(f"{game}:deaths", username, deaths_delta)
         if disconnects_delta:
             self._increment_board_score(f"{game}:disconnects", username, disconnects_delta)
+        self._sync_player_search_profile(username)
         self._save_runtime_state()
         return True
 
@@ -408,6 +426,7 @@ class PlatformServer:
     def set_favorite(self, username, game_id):
         result = self.accounts.set_favorite(username, game_id)
         if result:
+            self._sync_player_search_profile(username)
             self._save_runtime_state()
         return result
 
@@ -419,6 +438,7 @@ class PlatformServer:
     def add_minutes(self, username, minutes):
         result = self.accounts.add_minutes(username, minutes)
         if result:
+            self._sync_player_search_profile(username)
             self._save_runtime_state()
         return result
 

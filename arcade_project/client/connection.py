@@ -149,6 +149,20 @@ class ServerConnection:
     def set_favorite(self, username, game_id):
         return self._request("set_favorite", {"username": username, "game_id": game_id})
 
+    # --- Player search ------------------------------------------------------
+
+    def search_players(self, prefix):
+        resp = self._request("search_players", {"prefix": prefix})
+        if resp.get("status") == "ok":
+            return resp.get("data") or []
+        return []
+
+    def get_player_profile(self, username):
+        resp = self._request("get_player_profile", {"username": username})
+        if resp.get("status") == "ok":
+            return resp.get("data")
+        return None
+
     # --- Matchmaking -------------------------------------------------------
 
     def join_queue(self, skill_rating=1000):

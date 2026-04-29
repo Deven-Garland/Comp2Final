@@ -81,6 +81,8 @@ class ArcadeClient:
             on_leaderboard=self._handle_leaderboard,
             on_star=self._handle_star,
             on_rate=self._handle_rate,
+            on_search_players=self._handle_search_players,
+            on_select_player=self._handle_select_player,
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
@@ -297,6 +299,20 @@ class ArcadeClient:
         except Exception as e:
             print(f"[rate] {e}")
             return False
+
+    def _handle_search_players(self, prefix: str):
+        try:
+            return self._conn.search_players(prefix)
+        except Exception as e:
+            print(f"[search] {e}")
+            return []
+
+    def _handle_select_player(self, username: str):
+        try:
+            return self._conn.get_player_profile(username)
+        except Exception as e:
+            print(f"[profile] {e}")
+            return None
 
     def _handle_cancel_queue(self) -> None:
         self._ellie_game = None
