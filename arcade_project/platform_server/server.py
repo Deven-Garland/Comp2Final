@@ -294,7 +294,9 @@ class PlatformServer:
         return self.game_connector.send(game, request)
 
     def send_message(self, game_id, username, text, game="global"):
-        self.chat.send_message(game_id, username, text)
+        allowed = self.chat.send_message(game_id, username, text)
+        if not allowed:
+            return False
         self.accounts.add_message(username)
         self._increment_board_score(f"{game}:chats", username, 1)
         self._increment_board_score("global:chats", username, 1)
