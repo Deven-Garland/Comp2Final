@@ -168,8 +168,6 @@ class Level:
         updates = self.network.get_updates()
 
         if updates:
-            self.connection_status = f"Connected - {len(updates)} players online ({self.network.serializer.upper()})"
-
             current_player_ids = set()
 
             for player_id, data in updates.items():
@@ -217,6 +215,8 @@ class Level:
                 del self.other_players[player_id]
 
             self.player.other_players = list(self.other_players.values())
+            current_count = len(self.other_players) + 1
+            self.connection_status = f"Connected - {current_count} players online ({self.network.serializer.upper()})"
 
     def handle_events(self, events):
         """Handle pygame events (pass from main game loop)"""

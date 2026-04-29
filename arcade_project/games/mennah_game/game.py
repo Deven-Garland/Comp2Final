@@ -26,7 +26,7 @@ def _clear_game_modules():
                 break
 
 
-class VrajGame:
+class MennahGame:
     def __init__(self, surface: pygame.Surface, username: str = "player"):
         self.surface = surface
         self.username = username

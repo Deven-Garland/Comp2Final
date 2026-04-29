@@ -28,7 +28,6 @@ from client.screens import (
     SMALL_FONT,
 )
 from client.connection import ServerConnection
-from arcade_project.games.embedded_level_game import EmbeddedLevelGame
 
 
 WINDOW_W = 1024
@@ -431,7 +430,18 @@ class ArcadeClient:
         elif self._current_game_id in ("deven", "kimberly", "mennah", "vraj"):
             try:
                 game_surface = self._play.game_subsurface(self._screen)
-                self._ellie_game = EmbeddedLevelGame(self._current_game_id, game_surface, self._username)
+                if self._current_game_id == "deven":
+                    from arcade_project.games.deven_game.game import DevenGame
+                    self._ellie_game = DevenGame(game_surface, self._username)
+                elif self._current_game_id == "kimberly":
+                    from arcade_project.games.kimberly_game.game import KimberlyGame
+                    self._ellie_game = KimberlyGame(game_surface, self._username)
+                elif self._current_game_id == "mennah":
+                    from arcade_project.games.mennah_game.game import MennahGame
+                    self._ellie_game = MennahGame(game_surface, self._username)
+                elif self._current_game_id == "vraj":
+                    from arcade_project.games.vraj_game.game import VrajGame
+                    self._ellie_game = VrajGame(game_surface, self._username)
             except Exception as e:
                 print(f"[{self._current_game_id}_game] Failed to load: {e}")
                 self._ellie_game = None
