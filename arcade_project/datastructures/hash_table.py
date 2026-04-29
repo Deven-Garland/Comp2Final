@@ -109,15 +109,19 @@ class HashTable:
             if (self.table_size / self.table_capacity) > self.load_factor:
                 self._resize()
 
-    def get(self, key):
+    def get(self, key, default=None):
         """
-        Return the value for a given key. Returns None if the key is not found.
+        Return the value for a given key.
+        Returns `default` (None by default) when the key is not found.
         """
         # Find the bucket and walk its chain looking for the key
         index = self._hash(key)
         bucket = self.table_buckets[index]
         # LinkedList.find returns None if the key is not there
-        return bucket.find(key)
+        value = bucket.find(key)
+        if value is None and not bucket.contains(key):
+            return default
+        return value
 
     def remove(self, key):
         """
