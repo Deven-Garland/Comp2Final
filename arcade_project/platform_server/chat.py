@@ -26,14 +26,14 @@ from datastructures.array import ArrayList
 # Keyword filter — fast, offline, no API needed
 # ---------------------------------------------------------------------------
  
-_BAD_WORDS = [
+_BAD_WORDS = (
     "fuck", "bitch", "hate", "kys", "idiot"
-]
+)
  
-_GAME_SAFE = [
+_GAME_SAFE = (
     "killed", "kill", "die", "died", "death", "shoot", "shot",
     "destroyed", "dead", "murder", "attack", "fight", "destroy"
-]
+)
  
  
 class KeywordFilter:
@@ -213,7 +213,7 @@ class Chat:
  
     def get_messages(self, game_id):
         if game_id not in self.chat_sessions:
-            return []
+            return ArrayList()
         buffer = self.chat_sessions[game_id]
         return buffer.get_all()
  
@@ -221,7 +221,13 @@ class Chat:
         all_messages = self.get_messages(game_id)
         if count >= len(all_messages):
             return all_messages
-        return all_messages[-count:]
+        result = ArrayList()
+        start = len(all_messages) - count
+        i = start
+        while i < len(all_messages):
+            result.append(all_messages[i])
+            i += 1
+        return result
  
     def clear_session(self, game_id):
         if game_id in self.chat_sessions:
@@ -229,7 +235,7 @@ class Chat:
             buffer.clear()
  
     def active_sessions(self):
-        result = []
+        result = ArrayList()
         for game_id in self.chat_sessions:
             result.append(game_id)
         return result

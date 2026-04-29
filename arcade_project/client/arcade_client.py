@@ -11,6 +11,8 @@ import sys
 import time
 import threading
 import pygame
+from datastructures.array import ArrayList
+from datastructures.hash_table import HashTable
 
 from client.screens import (
     AppScreen,
@@ -35,15 +37,25 @@ WINDOW_TITLE = "MOSFET Arcade"
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 9000
 
-GAME_LIST = [
-    GameInfo("deven",    "Deven's Game",    "Fast reflex mini-game"),
-    GameInfo("ellie",    "Ellie's Game",    "Puzzle challenge"),
-    GameInfo("kimberly", "Kimberly's Game", "Score attack"),
-    GameInfo("mennah",   "Mennah's Game",   "Strategy lite"),
-    GameInfo("vraj",     "Vraj's Game",     "Endless runner"),
-]
+def _build_game_list():
+    games = ArrayList()
+    games.append(GameInfo("deven", "Deven's Game", "Fast reflex mini-game"))
+    games.append(GameInfo("ellie", "Ellie's Game", "Puzzle challenge"))
+    games.append(GameInfo("kimberly", "Kimberly's Game", "Score attack"))
+    games.append(GameInfo("mennah", "Mennah's Game", "Strategy lite"))
+    games.append(GameInfo("vraj", "Vraj's Game", "Endless runner"))
+    return games
 
-GAME_NAMES = {g.id: g.name for g in GAME_LIST}
+
+def _build_game_names(games):
+    names = HashTable()
+    for game in games:
+        names[game.id] = game.name
+    return names
+
+
+GAME_LIST = _build_game_list()
+GAME_NAMES = _build_game_names(GAME_LIST)
 
 
 class ArcadeClient:
@@ -108,14 +120,17 @@ class ArcadeClient:
         self._current = screen
 
     def _active_screen(self):
-        return {
-            AppScreen.LOGIN:   self._login,
-            AppScreen.BROWSER: self._browser,
-            AppScreen.STATS:   self._stats,
-            AppScreen.LEADERBOARD: self._leaderboard,
-            AppScreen.QUEUE:   self._queue,
-            AppScreen.PLAY:    self._play,
-        }[self._current]
+        if self._current == AppScreen.LOGIN:
+            return self._login
+        if self._current == AppScreen.BROWSER:
+            return self._browser
+        if self._current == AppScreen.STATS:
+            return self._stats
+        if self._current == AppScreen.LEADERBOARD:
+            return self._leaderboard
+        if self._current == AppScreen.QUEUE:
+            return self._queue
+        return self._play
 
     def _ensure_connected(self) -> bool:
         if self._connected:
@@ -180,7 +195,7 @@ class ArcadeClient:
     def _load_ratings(self) -> None:
         try:
             resp = self._conn.get_rating_rankings()
-            ratings = {}
+            ratings = HashTable()
             if resp.get("status") == "ok":
                 for row in resp.get("data") or []:
                     game = row.get("game")
@@ -189,7 +204,7 @@ class ArcadeClient:
                         ratings[game] = float(avg)
             self._browser.set_ratings(ratings)
         except Exception:
-            self._browser.set_ratings({})
+            self._browser.set_ratings(HashTable())
 
     def _handle_play(self, game_id: str) -> None:
         self._current_game_id = game_id
@@ -250,13 +265,14 @@ class ArcadeClient:
         self._go_to(AppScreen.BROWSER)
 
     def _load_leaderboard_data(self, game_id: str, stat: str):
-        top_rows = []
-        range_rows = []
+        top_rows = ArrayList()
+        range_rows = ArrayList()
         rank_value = None
 
         top_resp = self._conn.get_game_leaderboard(game_id, stat=stat, top_n=10)
         if top_resp.get("status") == "ok":
-            top_rows = [str(row) for row in (top_resp.get("data") or [])]
+            for row in (top_resp.get("data") or ()):
+                top_rows.append(str(row))
 
         rank_resp = self._conn.get_player_rank(self._username, game_id, stat=stat)
         if rank_resp.get("status") == "ok":
@@ -264,7 +280,8 @@ class ArcadeClient:
 
         range_resp = self._conn.get_score_range(game_id, stat, 1, 1000000)
         if range_resp.get("status") == "ok":
-            range_rows = [str(row) for row in (range_resp.get("data") or [])]
+            for row in (range_resp.get("data") or ()):
+                range_rows.append(str(row))
 
         return top_rows, rank_value, range_rows
 
@@ -305,7 +322,7 @@ class ArcadeClient:
             return self._conn.search_players(prefix)
         except Exception as e:
             print(f"[search] {e}")
-            return []
+            return ArrayList()
 
     def _handle_select_player(self, username: str):
         try:
@@ -415,8 +432,8 @@ class ArcadeClient:
                     if "bad request parameters" in message:
                         resp = self._conn._request("try_create_match")
                 if resp.get("status") == "ok":
-                    data = resp.get("data") or {}
-                    session_id = data.get("game_id") if isinstance(data, dict) else None
+                    data = resp.get("data") or HashTable()
+                    session_id = data.get("game_id") if hasattr(data, "get") else None
                     if session_id:
                         try:
                             self._conn._request("acknowledge_match", {"username": self._username})
@@ -434,8 +451,8 @@ class ArcadeClient:
                     game_id = self._session_id
                 resp = self._conn._request("get_chat", {"game_id": game_id})
                 if resp.get("status") == "ok":
-                    data = resp.get("data") or {}
-                    messages = data.get("messages", []) if isinstance(data, dict) else []
+                    data = resp.get("data") or HashTable()
+                    messages = data.get("messages", ArrayList()) if hasattr(data, "get") else ArrayList()
                     for msg in messages:
                         key = (msg.get("sender"), msg.get("message"), msg.get("time"))
                         if key not in self._chat_shown and msg.get("sender") != self._username:

@@ -44,11 +44,11 @@ class Ratings:
             gr = self.game_ratings[game_name]
             heap.insert((gr.average(), game_name))
  
-        ranked = []
+        ranked = ArrayList()
         while not heap.is_empty():
             avg, name = heap.remove_max()
             ranked.append({"game": name, "avg_rating": avg})
-        return ranked
+        return tuple(ranked)
  
     def get_highest_rated(self):
         """Return the single highest rated game."""

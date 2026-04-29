@@ -75,7 +75,7 @@ class CircularBuffer:
         Returns a regular list, skipping any unused slots if the buffer
         hasn't filled up yet.
         """
-        result = []
+        result = ArrayList()
 
         # Start at tail (the oldest item) and walk forward size times
         index = self.tail

@@ -11,6 +11,8 @@ Lab: Final Project
 import json
 import socket
 import threading
+from datastructures.array import ArrayList
+from datastructures.hash_table import HashTable
 
 
 class ServerConnection:
@@ -22,6 +24,12 @@ class ServerConnection:
         self._lock = threading.Lock()
         self._username = None
         self._session_id = None
+
+    def _payload(self, pairs=()):
+        payload = HashTable()
+        for key, value in pairs:
+            payload[key] = value
+        return payload
 
     def connect(self):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -46,33 +54,48 @@ class ServerConnection:
 
     def _request(self, action, payload=None):
         if payload is None:
-            payload = {}
-        request = {"action": action, **payload}
+            payload = HashTable()
+        request = HashTable()
+        request["action"] = action
+        for key in payload:
+            request[key] = payload[key]
+        request_json = {}
+        for key in request:
+            request_json[key] = request[key]
         with self._lock:
-            self._sock.sendall((json.dumps(request) + "\n").encode("utf-8"))
+            self._sock.sendall((json.dumps(request_json) + "\n").encode("utf-8"))
             line = self._file.readline()
         if not line:
-            return {"status": "error", "message": "No response from server"}
+            response = HashTable()
+            response["status"] = "error"
+            response["message"] = "No response from server"
+            return response
         resp = json.loads(line.strip())
         if "ok" in resp:
             if resp["ok"]:
-                return {"status": "ok", "data": resp.get("result", {})}
+                response = HashTable()
+                response["status"] = "ok"
+                response["data"] = resp.get("result", HashTable())
+                return response
             else:
-                return {"status": "error", "message": resp.get("error", "Unknown error")}
+                response = HashTable()
+                response["status"] = "error"
+                response["message"] = resp.get("error", "Unknown error")
+                return response
         return resp
 
     # --- Auth --------------------------------------------------------------
 
     def login(self, username, password):
         self.ensure_connected()
-        resp = self._request("login", {"username": username, "password": password})
+        resp = self._request("login", self._payload((("username", username), ("password", password))))
         if resp.get("status") == "ok":
             self._username = username
         return resp
 
     def register(self, username, password, email=None):
         self.ensure_connected()
-        resp = self._request("register", {"username": username, "password": password})
+        resp = self._request("register", self._payload((("username", username), ("password", password))))
         if resp.get("status") == "ok":
             self._username = username
         return resp
@@ -85,28 +108,28 @@ class ServerConnection:
     def get_game_list(self):
         resp = self._request("list_games")
         if resp.get("status") == "ok":
-            return resp.get("data") or []
-        return []
+            return resp.get("data") or ArrayList()
+        return ArrayList()
 
     # --- Stats -------------------------------------------------------------
 
     def get_leaderboard(self, top_n=10):
-        return self._request("top_players", {"k": top_n})
+        return self._request("top_players", self._payload((("k", top_n),)))
 
     def get_game_leaderboard(self, game, stat="score", top_n=10):
-        return self._request("top_players", {"k": top_n, "game": game, "stat": stat})
+        return self._request("top_players", self._payload((("k", top_n), ("game", game), ("stat", stat))))
 
     def get_player_rank(self, username, game, stat="score"):
-        return self._request("player_rank", {"username": username, "game": game, "stat": stat})
+        return self._request("player_rank", self._payload((("username", username), ("game", game), ("stat", stat))))
 
     def get_score_range(self, game, stat, low, high):
         return self._request(
             "players_in_score_range",
-            {"game": game, "stat": stat, "low": low, "high": high},
+            self._payload((("game", game), ("stat", stat), ("low", low), ("high", high))),
         )
 
     def rate_game(self, game_name, stars):
-        return self._request("rate_game", {"game_name": game_name, "stars": int(stars)})
+        return self._request("rate_game", self._payload((("game_name", game_name), ("stars", int(stars)))))
 
     def get_rating_rankings(self):
         return self._request("get_rating_rankings")
@@ -118,47 +141,47 @@ class ServerConnection:
         return self._request("get_lowest_rated_game")
 
     def get_minutes(self, username):
-        resp = self._request("get_minutes", {"username": username})
+        resp = self._request("get_minutes", self._payload((("username", username),)))
         if resp.get("status") == "ok":
             return resp.get("data") or 0
         return 0
 
     def add_minutes(self, username, minutes):
-        return self._request("add_minutes", {"username": username, "minutes": minutes})
+        return self._request("add_minutes", self._payload((("username", username), ("minutes", minutes))))
 
     def get_messages_sent(self, username):
-        resp = self._request("get_messages_sent", {"username": username})
+        resp = self._request("get_messages_sent", self._payload((("username", username),)))
         if resp.get("status") == "ok":
             return resp.get("data") or 0
         return 0
 
     def report_disconnect(self, username, game="global"):
-        return self._request("player_disconnected", {"username": username, "game": game})
+        return self._request("player_disconnected", self._payload((("username", username), ("game", game))))
 
     def report_death(self, username, game="global"):
-        return self._request("player_died", {"username": username, "game": game})
+        return self._request("player_died", self._payload((("username", username), ("game", game))))
 
     # --- Favorite game -----------------------------------------------------
 
     def get_favorite(self, username):
-        resp = self._request("get_favorite", {"username": username})
+        resp = self._request("get_favorite", self._payload((("username", username),)))
         if resp.get("status") == "ok":
             return resp.get("data") or ""
         return ""
 
     def set_favorite(self, username, game_id):
-        return self._request("set_favorite", {"username": username, "game_id": game_id})
+        return self._request("set_favorite", self._payload((("username", username), ("game_id", game_id))))
 
     # --- Player search ------------------------------------------------------
 
     def search_players(self, prefix):
-        resp = self._request("search_players", {"prefix": prefix})
+        resp = self._request("search_players", self._payload((("prefix", prefix),)))
         if resp.get("status") == "ok":
-            return resp.get("data") or []
-        return []
+            return resp.get("data") or ArrayList()
+        return ArrayList()
 
     def get_player_profile(self, username):
-        resp = self._request("get_player_profile", {"username": username})
+        resp = self._request("get_player_profile", self._payload((("username", username),)))
         if resp.get("status") == "ok":
             return resp.get("data")
         return None
@@ -166,7 +189,7 @@ class ServerConnection:
     # --- Matchmaking -------------------------------------------------------
 
     def join_queue(self, skill_rating=1000):
-        return self._request("join_queue", {"username": self._username})
+        return self._request("join_queue", self._payload((("username", self._username),)))
 
     def leave_queue(self):
         pass
@@ -176,7 +199,9 @@ class ServerConnection:
         if resp.get("status") == "ok":
             data = resp.get("data")
             if data and data.get("game_id"):
-                return {"session_id": data["game_id"]}
+                result = HashTable()
+                result["session_id"] = data["game_id"]
+                return result
         return None
 
     def set_session(self, session_id):
@@ -196,12 +221,12 @@ class ServerConnection:
             game_id = int(game_id) if game_id is not None else None
         except (TypeError, ValueError):
             pass
-        payload = {
-            "game_id": game_id,
-            "username": self._username,
-            "text": message,
-            "game": game,
-        }
+        payload = self._payload((
+            ("game_id", game_id),
+            ("username", self._username),
+            ("text", message),
+            ("game", game),
+        ))
         return self._request("send_message", payload)
 
     def poll_chat(self, session_id):
@@ -209,16 +234,16 @@ class ServerConnection:
             session_id = int(session_id)
         except (TypeError, ValueError):
             pass
-        resp = self._request("get_chat", {"game_id": session_id})
+        resp = self._request("get_chat", self._payload((("game_id", session_id),)))
         if resp.get("status") == "ok":
-            return resp.get("data") or []
-        return []
+            return resp.get("data") or ArrayList()
+        return ArrayList()
 
     def get_instance_status(self, session_id):
-        resp = self._request("instance_status", {"game_id": int(session_id)})
+        resp = self._request("instance_status", self._payload((("game_id", int(session_id)),)))
         if resp.get("status") == "ok":
-            return resp.get("data") or {}
-        return {}
+            return resp.get("data") or HashTable()
+        return HashTable()
 
     # --- Session -----------------------------------------------------------
 

@@ -12,6 +12,7 @@ Lab: Final Project - Leaderboard
 """
 from datastructures.bst import BinarySearchTree
 from datastructures.hash_table import HashTable
+from datastructures.array import ArrayList
 from datastructures.sorting import merge_sort
  
  
@@ -85,9 +86,10 @@ class Leaderboard:
         """
         uses BST inorder traversal format
         """
-        result = {0: 0}
+        result = HashTable()
+        result[0] = 0
         self.tree.inorder(self.tree.root, result)
-        values = []
+        values = ArrayList()
         i = 1
         while i <= result[0]:
             values.append(result[i])
@@ -100,7 +102,7 @@ class Leaderboard:
             key=lambda entry: (entry.score, entry.username),
             reverse=True,
         )
-        result = []
+        result = ArrayList()
         i = 0
         count = 0
         while i < len(sorted_values) and count < k:
@@ -111,7 +113,7 @@ class Leaderboard:
  
     def range_query(self, low, high):
         sorted_values = self._get_sorted()
-        result = []
+        result = ArrayList()
         for entry in sorted_values:
             if low <= entry.score <= high:
                 result.append(entry)

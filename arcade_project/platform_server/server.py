@@ -30,6 +30,7 @@ from platform_server.leaderboard import Leaderboard
 from platform_server.matchmaking import Matchmaking
 from .player_search import PlayerSearch
 from platform_server.ratings import Ratings
+from datastructures.array import ArrayList
 from datastructures.hash_table import HashTable
 
 
@@ -43,6 +44,36 @@ RUNTIME_STATE_FILE = Path(__file__).with_name("runtime_state.json")
 
 REQUEST_TYPE_KEYS = ("type", "action")
 RESERVED_REQUEST_KEYS = (*REQUEST_TYPE_KEYS, "request_id", "params")
+
+
+def _to_builtin_json(value):
+    """Convert custom data structures to JSON-serializable builtins at I/O boundaries."""
+    if isinstance(value, HashTable):
+        converted = {}
+        for key in value:
+            converted[key] = _to_builtin_json(value[key])
+        return converted
+    if isinstance(value, ArrayList):
+        converted = []
+        for item in value:
+            converted.append(_to_builtin_json(item))
+        return converted
+    if isinstance(value, tuple):
+        converted = []
+        for item in value:
+            converted.append(_to_builtin_json(item))
+        return converted
+    if isinstance(value, list):
+        converted = []
+        for item in value:
+            converted.append(_to_builtin_json(item))
+        return converted
+    if isinstance(value, dict):
+        converted = {}
+        for key, item in value.items():
+            converted[key] = _to_builtin_json(item)
+        return converted
+    return value
 
 
 class PlatformServer:
@@ -76,14 +107,13 @@ class PlatformServer:
         for username in self.accounts.accounts:
             account = self.accounts.get_account(username)
             if account:
-                profile = {
-                    "name": account.username,
-                    "total_play_time": account.minutes_played,
-                    "games_played": 0,
-                    "win_rate": 0.0,
-                    "favorite_game": account.favorite_game,
-                    "messages_sent": account.messages_sent,
-                }
+                profile = HashTable()
+                profile["name"] = account.username
+                profile["total_play_time"] = account.minutes_played
+                profile["games_played"] = 0
+                profile["win_rate"] = 0.0
+                profile["favorite_game"] = account.favorite_game
+                profile["messages_sent"] = account.messages_sent
                 self.player_search.register(username, username, profile)
 
     def _sync_player_search_profile(self, username):
@@ -91,55 +121,53 @@ class PlatformServer:
         account = self.accounts.get_account(username)
         if not account:
             return
-        profile = {
-            "name": account.username,
-            "total_play_time": account.minutes_played,
-            "games_played": self._get_counter_value("global:sessions", username),
-            "win_rate": 0.0,
-            "favorite_game": account.favorite_game,
-            "messages_sent": account.messages_sent,
-        }
+        profile = HashTable()
+        profile["name"] = account.username
+        profile["total_play_time"] = account.minutes_played
+        profile["games_played"] = self._get_counter_value("global:sessions", username)
+        profile["win_rate"] = 0.0
+        profile["favorite_game"] = account.favorite_game
+        profile["messages_sent"] = account.messages_sent
         self.player_search.register(username, username, profile)
 
     def _serialize_game_counters(self):
-        data = {}
+        data = HashTable()
         for board_name in self.game_counters:
             counters = self.game_counters[board_name]
-            data[board_name] = {}
+            data[board_name] = HashTable()
             for username in counters:
                 data[board_name][username] = counters[username]
         return data
 
     def _serialize_history(self):
-        data = {}
+        data = HashTable()
         for username in self.history.history:
             matches = self.history.history[username]
-            rows = []
+            rows = ArrayList()
             i = 0
             while i < len(matches):
                 match = matches[i]
+                row = HashTable()
+                row["game_id"] = match.game_id
+                row["players"] = tuple(match.players)
+                row["winner"] = match.winner
                 rows.append(
-                    {
-                        "game_id": match.game_id,
-                        "players": list(match.players),
-                        "winner": match.winner,
-                    }
+                    row
                 )
                 i += 1
-            data[username] = rows
+            data[username] = tuple(rows)
         return data
 
     def _save_runtime_state(self):
-        payload = {
-            "next_game_id": self.next_game_id,
-            "active_game_id": self.active_game_id,
-            "instance_player_counts": self.instance_player_counts,
-            "game_counters": self._serialize_game_counters(),
-            "history": self._serialize_history(),
-        }
+        payload = HashTable()
+        payload["next_game_id"] = self.next_game_id
+        payload["active_game_id"] = self.active_game_id
+        payload["instance_player_counts"] = self.instance_player_counts
+        payload["game_counters"] = self._serialize_game_counters()
+        payload["history"] = self._serialize_history()
         try:
             with open(RUNTIME_STATE_FILE, "w", encoding="utf-8") as file:
-                json.dump(payload, file, indent=2)
+                json.dump(_to_builtin_json(payload), file, indent=2)
         except Exception as error:
             print(f"[platform] Could not save runtime state: {error}")
 
@@ -158,9 +186,9 @@ class PlatformServer:
         self.active_game_id = int(active_game_id) if active_game_id is not None else None
 
         raw_counts = payload.get("instance_player_counts", {})
-        self.instance_player_counts = {
-            int(game_id): int(count) for game_id, count in raw_counts.items()
-        }
+        self.instance_player_counts = HashTable()
+        for game_id, count in raw_counts.items():
+            self.instance_player_counts[int(game_id)] = int(count)
 
         # Restore per-board counters and rebuild corresponding leaderboard entries.
         self.game_counters = HashTable()
@@ -178,7 +206,7 @@ class PlatformServer:
             for match in matches:
                 self.history.add_match(
                     match.get("game_id"),
-                    match.get("players", []),
+                    match.get("players", ()),
                     match.get("winner"),
                 )
 
@@ -186,14 +214,13 @@ class PlatformServer:
         result = self.accounts.register(username, password)
         # Add new player to search index when they register
         if result:
-            profile = {
-                "name": username,
-                "total_play_time": 0,
-                "games_played": 0,
-                "win_rate": 0.0,
-                "favorite_game": "",
-                "messages_sent": 0,
-            }
+            profile = HashTable()
+            profile["name"] = username
+            profile["total_play_time"] = 0
+            profile["games_played"] = 0
+            profile["win_rate"] = 0.0
+            profile["favorite_game"] = ""
+            profile["messages_sent"] = 0
             self.player_search.register(username, username, profile)
             self._save_runtime_state()
         return result
@@ -211,7 +238,12 @@ class PlatformServer:
         # If this player already has a pending match, return it
         if username and username in self.pending_matches:
             game_id = self.pending_matches[username]
-            return {"game_id": game_id, "players": [username]}
+            match_data = HashTable()
+            match_data["game_id"] = game_id
+            one_player = ArrayList()
+            one_player.append(username)
+            match_data["players"] = tuple(one_player)
+            return match_data
 
         players = self.matchmaking.match_players(self.players_per_match)
         if len(players) == 0:
@@ -223,7 +255,10 @@ class PlatformServer:
         for p in players:
             self.pending_matches[p] = game_id
         self._save_runtime_state()
-        return {"game_id": game_id, "players": players}
+        match_data = HashTable()
+        match_data["game_id"] = game_id
+        match_data["players"] = tuple(players)
+        return match_data
 
     def acknowledge_match(self, username):
         """Call after a client has received and stored the match — clears the pending entry."""
@@ -265,25 +300,29 @@ class PlatformServer:
         return True
 
     def get_chat(self, game_id):
-        # FIX: return proper dicts so the client can read sender/message/time
+        # Keep protocol shape, but use HashTable internally.
         messages = self.chat.get_messages(game_id)
-        return {
-            "messages": [
-                {"sender": m.sender, "message": m.text, "time": m.timestamp}
-                for m in messages
-            ]
-        }
+        message_rows = ArrayList()
+        for message in messages:
+            row = HashTable()
+            row["sender"] = message.sender
+            row["message"] = message.text
+            row["time"] = message.timestamp
+            message_rows.append(row)
+        payload = HashTable()
+        payload["messages"] = tuple(message_rows)
+        return payload
 
     def instance_status(self, game_id):
         """
         Return occupancy for a game instance so clients can show X/30 connections.
         """
         current = self.instance_player_counts[game_id] if game_id in self.instance_player_counts else 0
-        return {
-            "game_id": game_id,
-            "current_players": current,
-            "max_players": self.max_players_per_instance,
-        }
+        payload = HashTable()
+        payload["game_id"] = game_id
+        payload["current_players"] = current
+        payload["max_players"] = self.max_players_per_instance
+        return payload
 
     def end_game(self, game_id, players, winner, score, game="global"):
         self.history.add_match(game_id, players, winner)
@@ -388,12 +427,12 @@ class PlatformServer:
             board_name = f"{game}:{stat}"
             if board_name in self.game_leaderboards:
                 return self.game_leaderboards[board_name].top_k(k)
-            return []
+            return ArrayList()
         if game:
             board_name = f"{game}:score"
             if board_name in self.game_leaderboards:
                 return self.game_leaderboards[board_name].top_k(k)
-            return []
+            return ArrayList()
         return self.leaderboard.top_k(k)
 
     def player_rank(self, username, game, stat="score"):
@@ -407,7 +446,7 @@ class PlatformServer:
     def players_in_score_range(self, game, stat, low, high):
         board_name = f"{game}:{stat}"
         if board_name not in self.game_leaderboards:
-            return []
+            return ArrayList()
         return self.game_leaderboards[board_name].range_query(low, high)
 
     def player_history(self, username):
@@ -415,7 +454,10 @@ class PlatformServer:
 
     def search_players(self, prefix):
         """Return list of player profiles whose name starts with prefix."""
-        return self.player_search.search_prefix(prefix)
+        results = ArrayList()
+        for profile in self.player_search.search_prefix(prefix):
+            results.append(profile)
+        return tuple(results)
 
     def get_player_profile(self, username):
         """Return a single player's full profile by exact username."""
@@ -467,17 +509,29 @@ class PlatformServer:
 
 class GameRegistry:
     def __init__(self, game_servers=None):
-        self.game_servers = {}
-        for name, host, port in game_servers or []:
+        self.game_servers = HashTable()
+        for name, host, port in game_servers or ():
             self.add_game(name, host, port)
 
     def add_game(self, name, host, port):
         if not name:
             raise ValueError("game name is required")
-        self.game_servers[name] = {"name": name, "host": host, "port": int(port)}
+        game = HashTable()
+        game["name"] = name
+        game["host"] = host
+        game["port"] = int(port)
+        self.game_servers[name] = game
 
     def list_games(self):
-        return list(self.game_servers.values())
+        games = ArrayList()
+        for name in self.game_servers:
+            game = self.game_servers[name]
+            row = HashTable()
+            row["name"] = game["name"]
+            row["host"] = game["host"]
+            row["port"] = game["port"]
+            games.append(row)
+        return tuple(games)
 
     def get_game(self, name):
         game = self.game_servers.get(name)
@@ -505,7 +559,7 @@ class GameConnector:
             return response
 
     def read_line(self, connection):
-        chunks = []
+        chunks = ArrayList()
         while True:
             chunk = connection.recv(1)
             if not chunk or chunk == b"\n":
@@ -552,8 +606,16 @@ class RequestDispatcher:
     def get_params(self, request):
         params = request.get("params")
         if params is None:
-            params = {k: v for k, v in request.items() if k not in RESERVED_REQUEST_KEYS}
+            params = HashTable()
+            for key, value in request.items():
+                if key not in RESERVED_REQUEST_KEYS:
+                    params[key] = value
         if not isinstance(params, dict):
+            if isinstance(params, HashTable):
+                converted = {}
+                for key in params:
+                    converted[key] = params[key]
+                return converted
             raise ValueError("params must be a JSON object")
         return params
 
@@ -574,7 +636,7 @@ class PlatformRequestHandler(socketserver.StreamRequestHandler):
             if not raw_line:
                 continue
             response = self.handle_request_line(raw_line)
-            self.wfile.write(json.dumps(response, default=str).encode("utf-8") + b"\n")
+            self.wfile.write(json.dumps(_to_builtin_json(response), default=str).encode("utf-8") + b"\n")
 
     def handle_request_line(self, raw_line):
         request_id = None
@@ -612,15 +674,18 @@ def parse_args():
 
 
 def parse_game_servers(named_servers, ports, default_host):
-    game_servers = parse_named_game_servers(GAME_SERVER_ENV)
-    game_servers.extend(parse_named_game_servers(",".join(named_servers)))
+    game_servers = ArrayList()
+    for item in parse_named_game_servers(GAME_SERVER_ENV):
+        game_servers.append(item)
+    for item in parse_named_game_servers(",".join(named_servers)):
+        game_servers.append(item)
     for index, port in enumerate(ports, start=1):
         game_servers.append((f"game{index}", default_host, port))
-    return game_servers
+    return tuple(game_servers)
 
 
 def parse_named_game_servers(raw_value):
-    game_servers = []
+    game_servers = ArrayList()
     for item in raw_value.split(","):
         item = item.strip()
         if not item:
@@ -628,7 +693,7 @@ def parse_named_game_servers(raw_value):
         name, address = item.split("=", 1)
         host, port = address.rsplit(":", 1)
         game_servers.append((name.strip(), host.strip(), int(port)))
-    return game_servers
+    return tuple(game_servers)
 
 
 if __name__ == "__main__":

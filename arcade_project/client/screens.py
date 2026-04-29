@@ -13,29 +13,38 @@ import math
 from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import pygame
+from datastructures.array import ArrayList
+from datastructures.hash_table import HashTable
 
 
 # --- Theme -----------------------------------------------------------------
 
-COLORS = {
-    "bg": (18, 18, 28),
-    "panel": (28, 28, 42),
-    "panel_light": (38, 38, 58),
-    "accent": (94, 234, 212),
-    "accent_dim": (60, 160, 145),
-    "text": (240, 240, 245),
-    "text_dim": (160, 160, 180),
-    "error": (255, 120, 120),
-    "success": (120, 220, 160),
-    "border": (70, 70, 95),
-    "input_bg": (22, 22, 35),
-    "row_hover": (45, 45, 68),
-    "row_sel": (55, 55, 85),
-    "star": (255, 210, 60),
-}
+def _make_theme_colors():
+    colors = HashTable()
+    for key, value in (
+        ("bg", (18, 18, 28)),
+        ("panel", (28, 28, 42)),
+        ("panel_light", (38, 38, 58)),
+        ("accent", (94, 234, 212)),
+        ("accent_dim", (60, 160, 145)),
+        ("text", (240, 240, 245)),
+        ("text_dim", (160, 160, 180)),
+        ("error", (255, 120, 120)),
+        ("success", (120, 220, 160)),
+        ("border", (70, 70, 95)),
+        ("input_bg", (22, 22, 35)),
+        ("row_hover", (45, 45, 68)),
+        ("row_sel", (55, 55, 85)),
+        ("star", (255, 210, 60)),
+    ):
+        colors[key] = value
+    return colors
+
+
+COLORS = _make_theme_colors()
 
 
 def _fonts() -> Tuple[pygame.font.Font, pygame.font.Font, pygame.font.Font]:
@@ -236,22 +245,25 @@ class BrowserScreen:
         self.on_search_players = on_search_players
         self.on_select_player = on_select_player
         self.favorite_game_id = ""
-        self.game_ratings: Dict[str, float] = {}
-        self.user_ratings: Dict[str, int] = {}
-        self.games: List[GameInfo] = games or [
+        self.game_ratings = HashTable()
+        self.user_ratings = HashTable()
+        self.games = ArrayList()
+        default_games = (
             GameInfo("deven", "Deven's Game", "Fast reflex mini-game"),
             GameInfo("ellie", "Ellie's Game", "Puzzle challenge"),
             GameInfo("kimberly", "Kimberly's Game", "Score attack"),
             GameInfo("mennah", "Mennah's Game", "Strategy lite"),
             GameInfo("vraj", "Vraj's Game", "Endless runner"),
-        ]
+        )
+        for game in games or default_games:
+            self.games.append(game)
         self._star_icon = None
         self._load_star_icon()
         self._selected: Optional[int] = None
         self._scroll = 0
         self._hover_row = -1
         self._last_search_text = ""
-        self._search_results: List[dict] = []
+        self._search_results = ArrayList()
         self._selected_profile: Optional[dict] = None
         pad = 24
         self._search_input = TextInput(
@@ -274,15 +286,21 @@ class BrowserScreen:
         )
 
     def set_games(self, games: List[GameInfo]) -> None:
-        self.games = games
+        self.games = ArrayList()
+        for game in games:
+            self.games.append(game)
         self._selected = None
         self._scroll = 0
 
     def set_favorite(self, game_id: str) -> None:
         self.favorite_game_id = game_id
 
-    def set_ratings(self, ratings: Dict[str, float]) -> None:
-        self.game_ratings = ratings or {}
+    def set_ratings(self, ratings) -> None:
+        self.game_ratings = HashTable()
+        if not ratings:
+            return
+        for game_id in ratings:
+            self.game_ratings[game_id] = float(ratings[game_id])
 
     def set_user_rating(self, game_id: str, stars: int) -> None:
         self.user_ratings[game_id] = max(1, min(5, int(stars)))
@@ -290,10 +308,10 @@ class BrowserScreen:
     def _load_star_icon(self) -> None:
         # Try common asset locations, including the team's existing Graphic/star.png.
         root = Path(__file__).resolve().parents[2]
-        candidates = [
+        candidates = (
             root / "arcade_project" / "Graphic" / "star.png",
             root / "assets" / "star_rating.png",
-        ]
+        )
         for candidate in candidates:
             if not candidate.exists():
                 continue
@@ -321,16 +339,20 @@ class BrowserScreen:
             if query != self._last_search_text:
                 self._last_search_text = query
                 if self.on_search_players and query:
-                    self._search_results = self.on_search_players(query)[:6]
+                    self._search_results = ArrayList()
+                    raw_results = self.on_search_players(query)
+                    max_items = min(6, len(raw_results))
+                    for i in range(max_items):
+                        self._search_results.append(raw_results[i])
                 else:
-                    self._search_results = []
+                    self._search_results = ArrayList()
             if event.key == pygame.K_RETURN and self._search_results:
                 first = self._search_results[0]
                 username = first.get("name") or first.get("username")
                 if username and self.on_select_player:
                     self._selected_profile = self.on_select_player(username)
                     self._search_input.text = username
-                    self._search_results = []
+                    self._search_results = ArrayList()
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             result_box = self._search_results_rect()
@@ -343,7 +365,7 @@ class BrowserScreen:
                     if username and self.on_select_player:
                         self._selected_profile = self.on_select_player(username)
                         self._search_input.text = username
-                        self._search_results = []
+                        self._search_results = ArrayList()
                         return
 
             if self._btn_stats.contains(event.pos):
@@ -455,7 +477,7 @@ class BrowserScreen:
                 surface.blit(self._star_icon, (rating_rect.x, rating_rect.y + 2))
             else:
                 # Fallback when star PNG is not present.
-                points = []
+                points = ArrayList()
                 cx, cy = rating_rect.x + 8, rating_rect.y + 10
                 for n in range(10):
                     ang = math.radians(-90 + n * 36)
@@ -471,7 +493,7 @@ class BrowserScreen:
             for star_idx in range(1, 6):
                 sx = rating_click_rect.x + (star_idx - 1) * 20 + 8
                 sy = rating_click_rect.y + 10
-                points = []
+                points = ArrayList()
                 for n in range(10):
                     ang = math.radians(-90 + n * 36)
                     rad = 7 if n % 2 == 0 else 3
@@ -507,12 +529,11 @@ class BrowserScreen:
             pygame.draw.rect(surface, COLORS["border"], box, 1, border_radius=8)
             name = self._selected_profile.get("name", "Player")
             surface.blit(BODY_FONT.render(str(name), True, COLORS["accent"]), (box.x + 10, box.y + 8))
-            lines = [
-                f"Minutes: {self._selected_profile.get('total_play_time', 0)}",
-                f"Messages: {self._selected_profile.get('messages_sent', 0)}",
-                f"Favorite: {self._selected_profile.get('favorite_game', '') or 'None'}",
-                f"Games: {self._selected_profile.get('games_played', 0)}",
-            ]
+            lines = ArrayList()
+            lines.append(f"Minutes: {self._selected_profile.get('total_play_time', 0)}")
+            lines.append(f"Messages: {self._selected_profile.get('messages_sent', 0)}")
+            lines.append(f"Favorite: {self._selected_profile.get('favorite_game', '') or 'None'}")
+            lines.append(f"Games: {self._selected_profile.get('games_played', 0)}")
             for i, line in enumerate(lines):
                 surface.blit(SMALL_FONT.render(line, True, COLORS["text"]), (box.x + 10, box.y + 34 + i * 20))
 
@@ -574,12 +595,11 @@ class StatsScreen:
         sub = SMALL_FONT.render("Totals for your account (from the platform server)", True, COLORS["text_dim"])
         surface.blit(sub, sub.get_rect(center=(self.rect.centerx, self.rect.y + 138)))
 
-        items = [
-            ("Games played", str(self.stats.games_played)),
-            ("Messages sent", str(self.stats.messages_sent)),
-            ("Favorite game", self.stats.favorite_game or "None"),
-            ("Minutes played", _format_minutes(self.stats.minutes_played)),
-        ]
+        items = ArrayList()
+        items.append(("Games played", str(self.stats.games_played)))
+        items.append(("Messages sent", str(self.stats.messages_sent)))
+        items.append(("Favorite game", self.stats.favorite_game or "None"))
+        items.append(("Minutes played", _format_minutes(self.stats.minutes_played)))
         gap = 16
         card_w = min(420, (self.rect.width - 48 - gap) // 2)
         card_h = 100
@@ -615,12 +635,16 @@ class LeaderboardScreen:
         self.rect = rect
         self.on_back = on_back
         self.on_refresh = on_refresh
-        self.games = games or []
+        self.games = ArrayList()
+        for game in games or ():
+            self.games.append(game)
         self.game_idx = 0
-        self.stats = ["score", "chats", "deaths", "disconnects", "play_time", "sessions"]
+        self.stats = ArrayList()
+        for stat in ("score", "chats", "deaths", "disconnects", "play_time", "sessions"):
+            self.stats.append(stat)
         self.stat_idx = 0
-        self.top_rows: List[str] = []
-        self.range_rows: List[str] = []
+        self.top_rows = ArrayList()
+        self.range_rows = ArrayList()
         self.rank_value: Optional[int] = None
         self.status = ""
 
@@ -642,11 +666,18 @@ class LeaderboardScreen:
         game = self._current_game()
         stat = self._current_stat()
         try:
-            self.top_rows, self.rank_value, self.range_rows = self.on_refresh(game, stat)
+            top_rows_raw, self.rank_value, range_rows_raw = self.on_refresh(game, stat)
+            self.top_rows = ArrayList()
+            self.range_rows = ArrayList()
+            for row in top_rows_raw:
+                self.top_rows.append(row)
+            for row in range_rows_raw:
+                self.range_rows.append(row)
             self.status = f"Loaded {game}:{stat}"
         except Exception as error:
             self.status = f"Load failed: {error}"
-            self.top_rows, self.range_rows = [], []
+            self.top_rows = ArrayList()
+            self.range_rows = ArrayList()
             self.rank_value = None
 
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -698,13 +729,18 @@ class LeaderboardScreen:
             surface.blit(hdr, (box.x + 12, box.y + 10))
 
         y = top_box.y + 44
-        for idx, row in enumerate(self.top_rows[:12], start=1):
+        top_limit = min(12, len(self.top_rows))
+        for i in range(top_limit):
+            idx = i + 1
+            row = self.top_rows[i]
             line = SMALL_FONT.render(f"{idx}. {row}", True, COLORS["text"])
             surface.blit(line, (top_box.x + 12, y))
             y += 24
 
         y = range_box.y + 44
-        for row in self.range_rows[:12]:
+        range_limit = min(12, len(self.range_rows))
+        for i in range(range_limit):
+            row = self.range_rows[i]
             line = SMALL_FONT.render(str(row), True, COLORS["text"])
             surface.blit(line, (range_box.x + 12, y))
             y += 24
@@ -779,7 +815,7 @@ class PlaySessionScreen:
         self.session_id = session_id
         self.on_send_chat = on_send_chat
         self.on_leave = on_leave
-        self.chat_lines: List[ChatLine] = []
+        self.chat_lines = ArrayList()
         self.connection_count = 0
         self.connection_limit = 30
         self._chat_scroll = 0
@@ -823,7 +859,7 @@ class PlaySessionScreen:
         self._chat_scroll = max(0, total_h - self._history_rect.height)
 
     def clear_chat(self) -> None:
-        self.chat_lines.clear()
+        self.chat_lines = ArrayList()
         self._chat_scroll = 0
 
     def set_connection_status(self, current_players: int, max_players: int) -> None:
@@ -911,7 +947,7 @@ class AppScreen(Enum):
     PLAY = auto()
 
 
-__all__ = [
+__all__ = (
     "COLORS",
     "TITLE_FONT",
     "BODY_FONT",
@@ -928,4 +964,4 @@ __all__ = [
     "PlaySessionScreen",
     "ChatLine",
     "AppScreen",
-]
+)

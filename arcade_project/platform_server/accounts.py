@@ -30,6 +30,25 @@ HASH_PREFIX = "pbkdf2_sha256"
 PBKDF2_ITERATIONS = 120000
 
 
+def _to_builtin_json(value):
+    if isinstance(value, HashTable):
+        converted = {}
+        for key in value:
+            converted[key] = _to_builtin_json(value[key])
+        return converted
+    if isinstance(value, tuple):
+        converted = []
+        for item in value:
+            converted.append(_to_builtin_json(item))
+        return converted
+    if isinstance(value, list):
+        converted = []
+        for item in value:
+            converted.append(_to_builtin_json(item))
+        return converted
+    return value
+
+
 class Account:
     def __init__(self, username, password, favorite_game="", minutes_played=0, messages_sent=0):
         self.username = username
@@ -117,17 +136,17 @@ class Accounts:
 
     def _save(self):
         try:
-            data = {}
+            data = HashTable()
             for key in self.accounts:
                 account = self.accounts[key]
-                data[account.username] = {
-                    "password": account.password,
-                    "favorite_game": account.favorite_game,
-                    "minutes_played": account.minutes_played,
-                    "messages_sent": account.messages_sent,
-                }
+                account_data = HashTable()
+                account_data["password"] = account.password
+                account_data["favorite_game"] = account.favorite_game
+                account_data["minutes_played"] = account.minutes_played
+                account_data["messages_sent"] = account.messages_sent
+                data[account.username] = account_data
             with open(ACCOUNTS_FILE, "w") as f:
-                json.dump(data, f, indent=2)
+                json.dump(_to_builtin_json(data), f, indent=2)
         except Exception as e:
             print(f"[accounts] Could not save accounts file: {e}")
 

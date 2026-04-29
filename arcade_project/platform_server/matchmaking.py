@@ -42,9 +42,9 @@ class Matchmaking:
  
     def match_players(self, count=2):
         if self.heap.get_size() < count:
-            return []
+            return ArrayList()
  
-        result = []
+        result = ArrayList()
  
         for i in range(count):
             entry = self.heap.remove_min()

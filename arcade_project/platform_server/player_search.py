@@ -48,9 +48,9 @@ class PlayerSearch:
 
     def search_prefix(self, prefix):
         if not prefix:
-            return []
+            return ArrayList()
         prefix = prefix.lower()
-        results = []
+        results = ArrayList()
         i = self._bisect_left(prefix)
         while i < len(self._sorted_names):
             name = self._sorted_names[i]
