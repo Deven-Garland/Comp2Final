@@ -216,11 +216,9 @@ class ServerConnection:
     # --- Chat --------------------------------------------------------------
 
     def send_chat(self, message, game="global", recipient=None):
-        game_id = self._session_id
-        try:
-            game_id = int(game_id) if game_id is not None else None
-        except (TypeError, ValueError):
-            pass
+        game_id = game if game else self._session_id
+        if game_id is None:
+            game_id = "global"
         payload = self._payload((
             ("game_id", game_id),
             ("username", self._username),
@@ -229,12 +227,10 @@ class ServerConnection:
         ))
         return self._request("send_message", payload)
 
-    def poll_chat(self, session_id):
-        try:
-            session_id = int(session_id)
-        except (TypeError, ValueError):
-            pass
-        resp = self._request("get_chat", self._payload((("game_id", session_id),)))
+    def poll_chat(self, chat_channel):
+        if chat_channel is None:
+            chat_channel = "global"
+        resp = self._request("get_chat", self._payload((("game_id", chat_channel),)))
         if resp.get("status") == "ok":
             return resp.get("data") or ArrayList()
         return ArrayList()
