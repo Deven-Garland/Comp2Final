@@ -471,7 +471,7 @@ class BrowserScreen:
             desc = SMALL_FONT.render(g.description[:80], True, COLORS["text_dim"])
             surface.blit(desc, (rr.x + 12, rr.y + 30))
 
-            rating = float(self.game_ratings.get(g.id, 0.0))
+            rating = float(self.game_ratings[g.id]) if g.id in self.game_ratings else 0.0
             rating_rect = self._rating_rect_for_row(rr)
             if self._star_icon is not None:
                 surface.blit(self._star_icon, (rating_rect.x, rating_rect.y + 2))
@@ -488,7 +488,7 @@ class BrowserScreen:
             surface.blit(rt, (rating_rect.x + 20, rating_rect.y + 1))
 
             # Clickable 1-5 personal rating control.
-            selected = int(self.user_ratings.get(g.id, 0))
+            selected = int(self.user_ratings[g.id]) if g.id in self.user_ratings else 0
             rating_click_rect = self._rating_click_rect_for_row(rr)
             for star_idx in range(1, 6):
                 sx = rating_click_rect.x + (star_idx - 1) * 20 + 8
