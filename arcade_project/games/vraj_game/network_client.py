@@ -7,26 +7,26 @@ Handles connection to game server with support for three serialization formats:
 - BINARY: Fixed 88-byte struct
 
 Usage:
-    client = NetworkClient("Alice", serializer='text')
+    client = NetworkClient("Alice", serializer='json')
     client = NetworkClient("Bob", serializer='json')
-    client = NetworkClient("Charlie", serializer='binary')
+    client = NetworkClient("Charlie", serializer='json')
 """
 
 import socket
 import threading
 import json
-import struct
 from queue import Queue
 
 class NetworkClient:
-    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='text'):
+    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='json', game_id='vraj'):
         self.player_name = player_name
         self.server_host = server_host
         self.server_port = server_port
-        self.serializer = serializer.lower()  # 'text', 'json', or 'binary'
+        self.serializer = serializer.lower()
+        self.game_id = game_id
         
-        if self.serializer not in ['text', 'json', 'binary']:
-            raise ValueError(f"Invalid serializer: {serializer}. Must be 'text', 'json', or 'binary'")
+        if self.serializer != 'json':
+            raise ValueError(f"Invalid serializer: {serializer}. Must be 'json'")
         
         self.sock = None
         self.connected = False
@@ -90,66 +90,29 @@ class NetworkClient:
             self.my_player_id = int(parts[1])
             print(f"Assigned player ID: {self.my_player_id}")
             
-        elif msg.startswith("STATE||"):
-            # Game state update
-            # Format: STATE||<serialized_player1>||<serialized_player2>||...
-            # Players are separated by || (double pipe) to avoid conflicts with serialization formats
+        elif msg.startswith("STATE|") and "||" in msg:
+            # New format: STATE|instance_id||<ser>||...
+            # Legacy format: STATE||<ser>||...
             parts = msg.split('||')
-            print(f"[DEBUG] Received STATE message with {len(parts)-1} player entries")
             players = {}
             
             for i in range(1, len(parts)):
                 if parts[i]:
-                    print(f"[DEBUG] Parsing player {i}: '{parts[i][:50]}...'")  # First 50 chars
                     player_data = self._deserialize_player(parts[i])
                     if player_data:
-                        print(f"[DEBUG] Parsed player: ID={player_data['id']}, Name={player_data['name']}")
                         players[player_data['id']] = player_data
-                    else:
-                        print(f"[DEBUG] Failed to parse player data")
-            
-            print(f"[DEBUG] Total players parsed: {len(players)}")
             self.update_queue.put(players)
     
     def _deserialize_player(self, data):
         """Deserialize player data based on format"""
         try:
-            if self.serializer == 'text':
-                return self._deserialize_text(data)
-            elif self.serializer == 'json':
-                return self._deserialize_json(data)
-            elif self.serializer == 'binary':
-                return self._deserialize_binary(data)
+            return self._deserialize_json(data)
         except Exception as e:
             print(f"[ERROR] Deserialization error ({self.serializer} format): {e}")
             print(f"[ERROR] Data received: '{data[:100]}...'")
             print(f"[ERROR] This usually means server and client are using different serializers!")
             print(f"[ERROR] Server might be using a different format than '{self.serializer}'")
             return None
-    
-    def _deserialize_text(self, data):
-        """Deserialize TEXT format: "id|name|x|y|socket|character_type|status" """
-        parts = data.split('|')
-        if len(parts) >= 5:
-            try:
-                result = {
-                    'id': int(parts[0]),
-                    'name': parts[1],
-                    'x': float(parts[2]),
-                    'y': float(parts[3])
-                }
-                # Add character_type and status if present
-                if len(parts) >= 7:
-                    result['character_type'] = parts[5]
-                    result['status'] = parts[6]
-                else:
-                    result['character_type'] = ''
-                    result['status'] = 'down'
-                return result
-            except (ValueError, IndexError) as e:
-                print(f"Error parsing text data '{data}': {e}")
-                return None
-        return None
     
     def _deserialize_json(self, data):
         """Deserialize JSON format: {"id":1,"name":"Alice",...}"""
@@ -163,44 +126,10 @@ class NetworkClient:
             'status': player.get('status', 'down')
         }
     
-    def _deserialize_binary(self, data):
-        """Deserialize BINARY format: base64-encoded 88-byte struct"""
-        import base64
-        
-        try:
-            # Decode base64 to get raw bytes
-            raw_bytes = base64.b64decode(data)
-            
-            # Struct format: int(4) + char[32] + float(4) + float(4) + int(4) + char[16] + char[8] + padding(16) = 88 bytes
-            if len(raw_bytes) < 88:
-                return None
-            
-            # Unpack: i = int, 32s = 32-byte string, f = float, f = float, i = int, 16s = 16-byte string, 8s = 8-byte string, 16x = 16 bytes padding
-            unpacked = struct.unpack('i32sff i16s8s16x', raw_bytes[:88])
-            
-            player_id = unpacked[0]
-            name = unpacked[1].decode('utf-8').rstrip('\x00')  # Remove null terminator
-            x = unpacked[2]
-            y = unpacked[3]
-            character_type = unpacked[5].decode('utf-8').rstrip('\x00')  # Remove null terminator
-            status = unpacked[6].decode('utf-8').rstrip('\x00')  # Remove null terminator
-            
-            return {
-                'id': player_id,
-                'name': name,
-                'x': x,
-                'y': y,
-                'character_type': character_type,
-                'status': status
-            }
-        except Exception as e:
-            print(f"Binary deserialization error: {e}")
-            return None
-    
     def send_update(self, x, y, character_type="", status="down"):
         """Send our position, character type, and status to server (uses standard UPDATE format)"""
         if self.connected and self.my_player_id is not None:
-            msg = f"UPDATE|{self.my_player_id}|{x}|{y}|{self.player_name}|{character_type}|{status}\n"
+            msg = f"UPDATE|{self.my_player_id}|{x}|{y}|{self.player_name}|{character_type}|{status}|{self.game_id}\n"
             try:
                 self.sock.send(msg.encode('utf-8'))
             except:

@@ -28,6 +28,7 @@ from client.screens import (
     SMALL_FONT,
 )
 from client.connection import ServerConnection
+from arcade_project.games.embedded_level_game import EmbeddedLevelGame
 
 
 WINDOW_W = 1024
@@ -345,7 +346,8 @@ class ArcadeClient:
 
     def _handle_send_chat(self, text: str) -> None:
         try:
-            resp = self._conn.send_chat(text, game=self._current_game_id or "global")
+            chat_target = self._session_id or self._current_game_id or "global"
+            resp = self._conn.send_chat(text, game=chat_target)
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._play.add_chat(self._username, text)
             else:
@@ -414,7 +416,7 @@ class ArcadeClient:
             on_send_chat=self._handle_send_chat,
             on_leave=self._handle_leave,
         )
-        self._play.set_chat_channel(self._current_game_id or session_id)
+        self._play.set_chat_channel(session_id)
         self._play.add_chat("server", "Match found! Game starting...")
         self._chat_shown.clear()
 
@@ -426,8 +428,22 @@ class ArcadeClient:
             except Exception as e:
                 print(f"[ellie_game] Failed to load: {e}")
                 self._ellie_game = None
+        elif self._current_game_id in ("deven", "kimberly", "mennah", "vraj"):
+            try:
+                game_surface = self._play.game_subsurface(self._screen)
+                self._ellie_game = EmbeddedLevelGame(self._current_game_id, game_surface, self._username)
+            except Exception as e:
+                print(f"[{self._current_game_id}_game] Failed to load: {e}")
+                self._ellie_game = None
         else:
             self._ellie_game = None
+
+        if self._ellie_game is not None and hasattr(self._ellie_game, "level") and self._ellie_game.level:
+            try:
+                channel = f"{self._current_game_id}:{session_id}"
+                self._ellie_game.level.network.game_id = channel
+            except Exception:
+                pass
 
         self._go_to(AppScreen.PLAY)
 
@@ -460,7 +476,7 @@ class ArcadeClient:
 
         elif self._current == AppScreen.PLAY and self._session_id:
             try:
-                chat_data = self._conn.poll_chat(self._current_game_id or self._session_id)
+                chat_data = self._conn.poll_chat(self._session_id)
                 messages = chat_data.get("messages", ArrayList()) if hasattr(chat_data, "get") else ArrayList()
                 for msg in messages:
                     key = (msg.get("sender"), msg.get("message"), msg.get("time"))
