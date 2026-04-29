@@ -33,7 +33,8 @@ class Ratings:
         if stars < 1 or stars > 5:
             raise ValueError("Please select between 1 and 5 stars")
         if game_name not in self.game_ratings:
-            raise ValueError(f"{game_name} is not in the catalog")
+            # Keep ratings usable even if game registry changed across deployments.
+            self.game_ratings[game_name] = GameRating(game_name)
         self.game_ratings[game_name].add_score(stars)
  
     def get_rankings(self):

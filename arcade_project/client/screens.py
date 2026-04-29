@@ -330,6 +330,17 @@ class BrowserScreen:
                             self.on_star(gid)
                     else:
                         self._selected = idx
+        elif event.type == pygame.KEYDOWN and self._selected is not None and self.on_rate:
+            stars = None
+            if pygame.K_1 <= event.key <= pygame.K_5:
+                stars = event.key - pygame.K_0
+            elif pygame.K_KP1 <= event.key <= pygame.K_KP5:
+                stars = event.key - pygame.K_KP0
+            if stars is not None:
+                gid = self.games[self._selected].id
+                result = self.on_rate(gid, stars)
+                if result is not False:
+                    self.set_user_rating(gid, stars)
         elif event.type == pygame.MOUSEWHEEL:
             self._scroll = max(0, self._scroll - event.y * 24)
         elif event.type == pygame.MOUSEMOTION:
