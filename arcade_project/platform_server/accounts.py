@@ -57,6 +57,10 @@ class Account:
         self.minutes_played = minutes_played
         self.messages_sent = messages_sent
 
+    @property
+    def username(self):
+        return self._username
+
     def __str__(self):
         return f"Account({self.username})"
 
