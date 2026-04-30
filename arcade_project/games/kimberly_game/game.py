@@ -1,6 +1,7 @@
 import builtins
 import os
 import sys
+import time
 from contextlib import contextmanager
 
 import pygame
@@ -38,6 +39,11 @@ class KimberlyGame:
         self._play_btn = None
         self.selected_idx = 0
         self.character_classes = tuple()
+        self._start_time = None
+        self._session_stats = {}
+        self._title_font = pygame.font.Font(None, 34)
+        self._body_font = pygame.font.Font(None, 22)
+        self._small_font = pygame.font.Font(None, 18)
         self._setup_character_select()
 
     def _resolve_path(self, raw_path: str):
@@ -55,6 +61,7 @@ class KimberlyGame:
             suffix = norm.split("graphics/", 1)[1]
             candidates = candidates + (
                 os.path.join(GAME_DIR, "graphics", suffix),
+                os.path.join(GAME_DIR, "graphics", "graphics", suffix),
                 os.path.join(REPO_ROOT, "arcade_project", "graphics", suffix),
             )
         for candidate in candidates:
@@ -122,6 +129,7 @@ class KimberlyGame:
                 self.level.visible_sprites.display_surface = self.surface
                 self.level.visible_sprites.half_width = self.surface.get_width() // 2
                 self.level.visible_sprites.half_height = self.surface.get_height() // 2
+                self._start_time = time.time()
                 self.state = "play"
         finally:
             pygame.display.get_surface = original_get_surface
@@ -149,12 +157,20 @@ class KimberlyGame:
                 if self._play_btn and self._play_btn.collidepoint(event.pos):
                     self._start_level()
             return
+        if self.state == "stats":
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                w, h = self.surface.get_size()
+                back_btn = pygame.Rect(w // 2 - 80, h - 70, 160, 44)
+                if back_btn.collidepoint(event.pos):
+                    self.state = "done"
+            return
         if not self.level:
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self._leave_btn and self._leave_btn.collidepoint(event.pos):
             self.leave_reason = "disconnect"
+            self._collect_stats()
             self.cleanup()
-            self.state = "done"
+            self.state = "stats"
             return
         self.level.handle_events([event])
         self.level.handle_time_travel_input([event])
@@ -162,6 +178,11 @@ class KimberlyGame:
 
     def update(self, dt: float):
         if self.state != "play" or not self.level:
+            return
+        if getattr(self.level.player, "hp", 1) <= 0:
+            self.leave_reason = "death"
+            self.cleanup()
+            self.state = "done"
             return
         self.level.player.input_enabled = not self.chat_focused
         self.level.player.update()
@@ -178,6 +199,9 @@ class KimberlyGame:
     def draw(self):
         if self.state == "select":
             self._draw_select()
+            return
+        if self.state == "stats":
+            self._draw_stats()
             return
         if not self.level:
             return
@@ -245,3 +269,55 @@ class KimberlyGame:
         pygame.draw.rect(self.surface, (60, 160, 145), self._play_btn, border_radius=8)
         play = body_font.render("Play", True, (240, 240, 245))
         self.surface.blit(play, play.get_rect(center=self._play_btn.center))
+
+    def _collect_stats(self):
+        if not self.level:
+            return
+        elapsed = int(time.time() - self._start_time) if self._start_time else 0
+        self._session_stats = {
+            "hp": int(getattr(self.level.player, "hp", 0)),
+            "max_hp": int(getattr(self.level.player, "max_hp", 0)),
+            "xp": int(getattr(self.level.player, "exp", 0)),
+            "weapon": (
+                self.level.player.equipped_weapon.name
+                if getattr(self.level.player, "equipped_weapon", None)
+                else "None"
+            ),
+            "time": elapsed,
+            "character": str(getattr(self.level.player, "character_name", "Unknown")).title(),
+        }
+
+    def _draw_stats(self):
+        w, h = self.surface.get_size()
+        self.surface.fill((18, 18, 28))
+        title = self._title_font.render("Session Summary", True, (94, 234, 212))
+        self.surface.blit(title, title.get_rect(center=(w // 2, 50)))
+
+        s = self._session_stats
+        mins = int(s.get("time", 0)) // 60
+        secs = int(s.get("time", 0)) % 60
+        items = (
+            ("Character", s.get("character", "?")),
+            ("HP Remaining", f"{s.get('hp', 0)} / {s.get('max_hp', 0)}"),
+            ("XP Earned", str(s.get("xp", 0))),
+            ("Weapon", s.get("weapon", "None")),
+            ("Time Played", f"{mins}m {secs}s"),
+        )
+        gap = 12
+        card_h = 70
+        card_w = w - 40
+        y0 = 110
+        for i, (label, value) in enumerate(items):
+            y = y0 + i * (card_h + gap)
+            rr = pygame.Rect(20, y, card_w, card_h)
+            pygame.draw.rect(self.surface, (28, 28, 42), rr, border_radius=10)
+            pygame.draw.rect(self.surface, (70, 70, 95), rr, 1, border_radius=10)
+            lab = self._small_font.render(str(label).upper(), True, (160, 160, 180))
+            self.surface.blit(lab, (rr.x + 14, rr.y + 12))
+            val = self._body_font.render(str(value), True, (240, 240, 245))
+            self.surface.blit(val, (rr.x + 14, rr.y + 36))
+
+        back_btn = pygame.Rect(w // 2 - 80, h - 70, 160, 44)
+        pygame.draw.rect(self.surface, (60, 160, 145), back_btn, border_radius=8)
+        bt = self._body_font.render("Back to Games", True, (240, 240, 245))
+        self.surface.blit(bt, bt.get_rect(center=back_btn.center))
