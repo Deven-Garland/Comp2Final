@@ -73,7 +73,7 @@ class GeminiFilter:
     Falls back gracefully if the key is missing or the library is not installed.
     """
  
-    MODEL = "gemini-1.5-flash"
+    MODEL = "models/gemini-2.5-flash"
  
     _PROMPT = """
     You are a chat moderator for an arcade game platform.
@@ -84,7 +84,8 @@ class GeminiFilter:
     - Harassment or threats toward a real person
     - Sexual content
     - Spam or excessive repetition
- 
+    - Attempts to bypass the filter such as spaced letters (f u c k), repeated letters (fuckkk), or symbols replacing letters (f*ck)
+
     Reply with only "CLEAN" or "FLAGGED".
     Message: {message}
     """
@@ -106,7 +107,7 @@ class GeminiFilter:
         if not api_key:
             try:
                 from dotenv import load_dotenv
-                load_dotenv()
+                load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
                 api_key = os.environ.get("GEMINI_API_KEY", "")
             except ImportError:
                 pass
