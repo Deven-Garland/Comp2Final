@@ -1249,9 +1249,9 @@ class PlaySessionScreen:
         pad = 12
         self._history_rect = pygame.Rect(
             self._chat_rect.x + pad,
-            self._chat_rect.y + 52,
+            self._chat_rect.y + 68,
             self._chat_rect.width - 2 * pad,
-            self._chat_rect.height - 120,
+            self._chat_rect.height - 136,
         )
         self._input = TextInput(
             pygame.Rect(
@@ -1336,10 +1336,13 @@ class PlaySessionScreen:
             COLORS["text_dim"],
         )
         surface.blit(conn_text, (self._chat_rect.x + 12, self._chat_rect.y + 30))
-        sid = SMALL_FONT.render(f"Session: {self.session_id[:16]}…", True, COLORS["text_dim"])
-        surface.blit(sid, (self._chat_rect.x + 12, self._chat_rect.y + 44))
+        session_label = f"Session: {self.session_id}"
+        sid = SMALL_FONT.render(session_label, True, COLORS["text_dim"])
+        sid_x = self._chat_rect.right - 12 - sid.get_width()
+        sid_x = max(self._chat_rect.x + 150, sid_x)
+        surface.blit(sid, (sid_x, self._chat_rect.y + 30))
         channel = SMALL_FONT.render(f"Channel: {self.chat_channel}", True, COLORS["text_dim"])
-        surface.blit(channel, (self._chat_rect.x + 12, self._chat_rect.y + 58))
+        surface.blit(channel, (self._chat_rect.x + 12, self._chat_rect.y + 46))
 
         pygame.draw.rect(surface, COLORS["input_bg"], self._history_rect, border_radius=8)
         pygame.draw.rect(surface, COLORS["border"], self._history_rect, 1, border_radius=8)

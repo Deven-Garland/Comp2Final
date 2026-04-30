@@ -604,6 +604,11 @@ class ArcadeClient:
             return
         if not self._chat_channel:
             return
+        try:
+            if hasattr(self._ellie_game, "set_network_channel"):
+                self._ellie_game.set_network_channel(self._chat_channel)
+        except Exception:
+            pass
         level = getattr(self._ellie_game, "level", None)
         if not level:
             return
