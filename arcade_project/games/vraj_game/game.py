@@ -205,7 +205,8 @@ class VrajGame:
                 if hasattr(enemy, "enemy_update"):
                     enemy.enemy_update(self.level.player)
             self.level.enemies.update()
-            self.level.player_attack_logic()
+            if hasattr(self.level, "player_attack_logic"):
+                self.level.player_attack_logic()
         self.level.record_player_state()
         self.level.update_network()
 
