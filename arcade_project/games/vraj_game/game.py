@@ -202,7 +202,8 @@ class VrajGame:
             other.update()
         if not self.level.is_time_traveling:
             for enemy in tuple(self.level.enemies):
-                enemy.enemy_update(self.level.player)
+                if hasattr(enemy, "enemy_update"):
+                    enemy.enemy_update(self.level.player)
             self.level.enemies.update()
             self.level.player_attack_logic()
         self.level.record_player_state()

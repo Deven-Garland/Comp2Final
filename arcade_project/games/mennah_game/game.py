@@ -41,6 +41,7 @@ class MennahGame:
         self.character_classes = tuple()
         self._start_time = None
         self._session_stats = {}
+        self._network_channel = None
         self._title_font = pygame.font.Font(None, 34)
         self._body_font = pygame.font.Font(None, 22)
         self._small_font = pygame.font.Font(None, 18)
@@ -124,6 +125,8 @@ class MennahGame:
                 from level import Level
                 cls = self.character_classes[self.selected_idx] if self.character_classes else None
                 self.level = Level(self.username, cls, server_host=GAME_SERVER_HOST, server_port=GAME_SERVER_PORT, serializer="json")
+                if self._network_channel and hasattr(self.level, "network") and self.level.network:
+                    self.level.network.game_id = self._network_channel
                 self.level.display_surface = self.surface
                 self.level.visible_sprites.display_surface = self.surface
                 self.level.visible_sprites.half_width = self.surface.get_width() // 2
@@ -133,6 +136,11 @@ class MennahGame:
         finally:
             pygame.display.get_surface = original_get_surface
             sys.path = old_path
+
+    def set_network_channel(self, chat_channel: str):
+        self._network_channel = str(chat_channel) if chat_channel else None
+        if self.level and hasattr(self.level, "network") and self.level.network and self._network_channel:
+            self.level.network.game_id = self._network_channel
 
     def cleanup(self):
         if self.level and hasattr(self.level, "network") and self.level.network:
@@ -189,7 +197,8 @@ class MennahGame:
             other.update()
         if not self.level.is_time_traveling:
             for enemy in tuple(self.level.enemies):
-                enemy.enemy_update(self.level.player)
+                if hasattr(enemy, "enemy_update"):
+                    enemy.enemy_update(self.level.player)
             self.level.enemies.update()
             self.level.player_attack_logic()
         self.level.record_player_state()
