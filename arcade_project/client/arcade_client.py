@@ -25,7 +25,6 @@ from client.screens import (
     LeaderboardScreen,
     LoginScreen,
     MatchHistoryScreen,
-    PlayerSearchScreen,
     PlayerStats,
     PlaySessionScreen,
     QueueScreen,
@@ -45,11 +44,11 @@ SERVER_PORT = 9000
 
 def _build_game_list():
     games = ArrayList()
-    games.append(GameInfo("deven",    "Where the Fog Remembers", "Horror/adventure · explore & chat"))
-    games.append(GameInfo("ellie",    "Eli's Legacy",            "Fantasy/adventure · compete for high score"))
-    games.append(GameInfo("kimberly", "Fate of the Fists",       "Adventure/combat · fight to win"))
-    games.append(GameInfo("mennah",   "Doom in Delta",           "Historical RPG · complete secret missions"))
-    games.append(GameInfo("vraj",     "Echoes of the Iron Realm","Top-down action RPG · real-time multiplayer"))
+    games.append(GameInfo("deven",    "Where the Fog Remembers", "Horror/adventure · explore & chat",           "Deven Garland"))
+    games.append(GameInfo("ellie",    "Eli's Legacy",            "Fantasy/adventure · compete for high score",  "Ellie Lutz"))
+    games.append(GameInfo("kimberly", "Fate of the Fists",       "Adventure/combat · fight to win",             "Kimberly"))
+    games.append(GameInfo("mennah",   "Doom in Delta",           "Historical RPG · complete secret missions",   "Mennah Dewidar"))
+    games.append(GameInfo("vraj",     "Echoes of the Iron Realm","Top-down action RPG · real-time multiplayer", "Vraj"))
     return games
 
 
@@ -76,7 +75,7 @@ class ArcadeClient:
         self._username = ""
         self._current_game_id = ""
         self._session_id = ""
-        self._chat_shown = HashTable()  # used as a set: key=msg tuple str, value=True
+        self._chat_shown = HashTable()
         self._chat_channel = "global"
         self._ellie_game = None
         self._session_start_time = None
@@ -99,19 +98,11 @@ class ArcadeClient:
             on_stats=self._handle_stats,
             on_history=self._handle_history,
             on_leaderboard=self._handle_leaderboard,
-            on_player_search=self._handle_player_search,
             on_star=self._handle_star,
             on_rate=self._handle_rate,
             on_search_players=self._handle_search_players,
             on_select_player=self._handle_select_player,
             on_game_stats=self._handle_game_stats,
-            games=GAME_LIST,
-        )
-        self._player_search = PlayerSearchScreen(
-            full,
-            on_back=self._handle_back_to_browser,
-            on_search_players=self._handle_search_players,
-            on_select_player=self._handle_select_player,
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
@@ -149,8 +140,6 @@ class ArcadeClient:
             return self._login
         if self._current == AppScreen.BROWSER:
             return self._browser
-        if self._current == AppScreen.PLAYER_SEARCH:
-            return self._player_search
         if self._current == AppScreen.STATS:
             return self._stats
         if self._current == AppScreen.HISTORY:
@@ -291,7 +280,6 @@ class ArcadeClient:
         self._go_to(AppScreen.STATS)
 
     def _handle_game_stats(self, game_id: str) -> None:
-        """Load per-game stats for the selected game and show the GameStatsScreen."""
         game_name = GAME_NAMES.get(game_id, game_id) if game_id else game_id
         stat_keys = ("score", "sessions", "play_time", "chats", "deaths", "disconnects")
         stats = HashTable()
@@ -348,9 +336,6 @@ class ArcadeClient:
         self._history.refresh()
         self._go_to(AppScreen.HISTORY)
 
-    def _handle_player_search(self) -> None:
-        self._go_to(AppScreen.PLAYER_SEARCH)
-
     def _handle_back_to_browser(self) -> None:
         if self._leaderboard_from_play and self._session_id:
             self._leaderboard_from_play = False
@@ -368,7 +353,6 @@ class ArcadeClient:
             for row in (top_resp.get("data") or ()):
                 top_rows.append(str(row))
         elif "bad request parameters" in str(top_resp.get("message", "")):
-            # Backward compatibility with older servers that only support global leaderboard.
             legacy_top = self._conn.get_leaderboard(top_n=10)
             if legacy_top.get("status") == "ok":
                 for row in (legacy_top.get("data") or ()):
@@ -377,10 +361,7 @@ class ArcadeClient:
         rank_resp = self._conn.get_player_rank(self._username, game_id, stat=stat)
         if rank_resp.get("status") == "ok":
             rank_value = rank_resp.get("data")
-        elif "bad request parameters" in str(rank_resp.get("message", "")):
-            rank_value = None
 
-        # Right panel now acts as selectable Top N (5/10/15/20) for easier use.
         range_resp = self._conn.get_game_leaderboard(game_id, stat=stat, top_n=int(top_n))
         if range_resp.get("status") == "ok":
             for row in (range_resp.get("data") or ()):
@@ -434,11 +415,7 @@ class ArcadeClient:
 
     def _handle_select_player(self, username: str):
         try:
-            profile = self._conn.get_player_profile(username)
-            if profile and hasattr(profile, "get"):
-                favorite_id = profile.get("favorite_game", "")
-                profile["favorite_game"] = GAME_NAMES.get(favorite_id, favorite_id) if favorite_id else "None"
-            return profile
+            return self._conn.get_player_profile(username)
         except Exception as e:
             print(f"[profile] {e}")
             return None
@@ -484,7 +461,6 @@ class ArcadeClient:
                 pass
 
         if self._session_id:
-            # Pull final score from game if available, default 0
             final_score = 0
             if self._ellie_game is not None:
                 try:
@@ -505,8 +481,6 @@ class ArcadeClient:
             end_resp = None
             try:
                 end_resp = self._conn._request("end_game", end_game_payload)
-                # Backward compatibility: older platform servers do not accept
-                # the newer "duration" field yet.
                 if end_resp.get("status") == "error":
                     msg = str(end_resp.get("message", ""))
                     if "unexpected keyword argument 'duration'" in msg:
@@ -515,7 +489,6 @@ class ArcadeClient:
                             if key != "duration":
                                 fallback_payload[key] = end_game_payload[key]
                         end_resp = self._conn._request("end_game", fallback_payload)
-                # Older servers may also not support "game"; fall back to core args.
                 if end_resp.get("status") == "error":
                     msg = str(end_resp.get("message", ""))
                     if "unexpected keyword argument 'game'" in msg:
@@ -525,8 +498,6 @@ class ArcadeClient:
                         minimal_payload["winner"] = end_game_payload["winner"]
                         minimal_payload["score"] = end_game_payload["score"]
                         end_resp = self._conn._request("end_game", minimal_payload)
-                # Last-resort write path: if end_game still fails, update session
-                # counters directly so leaderboard/history do not stay stale.
                 if end_resp.get("status") == "error":
                     self._conn._request(
                         "record_session_result",
@@ -551,7 +522,7 @@ class ArcadeClient:
                 print(f"[leave] cleanup error: {e}")
 
         self._play.clear_chat()
-        self._chat_shown.clear()
+        self._chat_shown = HashTable()
         self._session_id = ""
         self._chat_channel = "global"
         self._ellie_game = None
@@ -565,7 +536,6 @@ class ArcadeClient:
     def _on_match_found(self, session_id: str) -> None:
         self._session_id = session_id
         self._session_start_time = time.time()
-
         self._conn.set_session(session_id)
 
         game_name = next((g.name for g in GAME_LIST if g.id == self._current_game_id), self._current_game_id)
@@ -580,7 +550,7 @@ class ArcadeClient:
         self._chat_channel = f"{self._current_game_id}:{session_id}" if self._current_game_id else str(session_id)
         self._play.set_chat_channel(self._chat_channel)
         self._play.add_chat("server", "Match found! Game starting...")
-        self._chat_shown.clear()
+        self._chat_shown = HashTable()
 
         if self._current_game_id == "ellie":
             try:
@@ -620,10 +590,6 @@ class ArcadeClient:
         self._go_to(AppScreen.PLAY)
 
     def _sync_play_connections_from_game(self) -> None:
-        """
-        Keep top-right connection count aligned with active players currently
-        present in the live game state (local player + remote players).
-        """
         if not self._play or not self._ellie_game:
             return
         level = getattr(self._ellie_game, "level", None)
@@ -669,7 +635,7 @@ class ArcadeClient:
                 chat_data = self._conn.poll_chat(self._chat_channel or self._session_id)
                 messages = chat_data.get("messages", ArrayList()) if hasattr(chat_data, "get") else ArrayList()
                 for msg in messages:
-                    key = (msg.get("sender"), msg.get("message"), msg.get("time"))
+                    key = f"{msg.get('sender')}|{msg.get('message')}|{msg.get('time')}"
                     if key not in self._chat_shown and msg.get("sender") != self._username:
                         self._play.add_chat(msg["sender"], msg["message"], msg.get("time", 0.0))
                         self._chat_shown[key] = True
@@ -720,7 +686,6 @@ class ArcadeClient:
                     self._ellie_game.update(dt)
                     self._sync_play_connections_from_game()
                     if self._ellie_game.state == "done":
-                        # Default to a normal leave unless a game explicitly marks death.
                         reason = getattr(self._ellie_game, "leave_reason", None) or "disconnect"
                         self._handle_leave(reason=reason)
                 except Exception as e:
