@@ -23,8 +23,7 @@ class WaterScarab(Character):
         except:
             pass
 
-        if is_local:
-            self.import_player_assets(animate=True)
+        self.import_player_assets(animate=True)
 
     @staticmethod
     def get_display_name():
@@ -55,8 +54,7 @@ class SkyScarab(Character):
         except:
             pass
 
-        if is_local:
-            self.import_player_assets(animate=True)
+        self.import_player_assets(animate=True)
 
     @staticmethod
     def get_display_name():
@@ -87,8 +85,7 @@ class BattleScarab(Character):
         except:
             pass
 
-        if is_local:
-            self.import_player_assets(animate=True)
+        self.import_player_assets(animate=True)
 
     @staticmethod
     def get_display_name():
@@ -119,8 +116,7 @@ class DeathScarab(Character):
         except:
             pass
 
-        if is_local:
-            self.import_player_assets(animate=False)
+        self.import_player_assets(animate=False)
 
     @staticmethod
     def get_display_name():

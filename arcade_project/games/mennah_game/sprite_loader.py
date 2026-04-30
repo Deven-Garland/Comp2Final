@@ -62,6 +62,8 @@ class SpriteLoader:
             dict: {status: [pygame.Surface, ...], ...}
         """
         name_lower = name.lower()
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        base_path = base_path if os.path.isabs(base_path) else os.path.normpath(os.path.join(module_dir, base_path))
         animations = {}
         
         # Define all possible statuses
@@ -235,6 +237,8 @@ class SpriteLoader:
     def get_sprite_info(name, base_path):
         """Get information about available sprites for debugging."""
         name_lower = name.lower()
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        base_path = base_path if os.path.isabs(base_path) else os.path.normpath(os.path.join(module_dir, base_path))
         character_dir = os.path.join(base_path, name_lower)
         static_path = os.path.join(base_path, f"{name_lower}.png")
         
