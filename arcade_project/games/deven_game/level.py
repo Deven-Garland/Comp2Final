@@ -189,7 +189,12 @@ class Level:
                 for (row, col), tile_id in entries:
                     x = col * TILESIZE
                     y = row * TILESIZE
-                    surf = gid_map.get(tile_id)
+                    # Tiled stores flip/rotation flags in the top bits of CSV gids.
+                    # Clear flags so gid lookups match TSX firstgid ranges.
+                    clean_gid = int(tile_id) & 0x1FFFFFFF
+                    if clean_gid <= 0:
+                        continue
+                    surf = gid_map.get(clean_gid)
                     if surf is not None:
                         Tile((x, y), groups, sprite_type, surf)
                     else:
