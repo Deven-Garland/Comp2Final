@@ -34,13 +34,17 @@ def merge_sort(values, key=None, reverse=False):
              to biggest. Useful for leaderboards where we want highest
              score first.
     """
+    # Normalize custom containers (ArrayList, etc.) into an indexable list.
+    # Some project data structures do not support slice syntax.
+    values = list(values)
+
     # If key is None just compare the items directly
     if key is None:
         key = lambda x: x
 
     # Base case: a list of 0 or 1 items is already sorted
     if len(values) <= 1:
-        return list(values)
+        return values
 
     # Split the list into two halves
     middle = len(values) // 2
