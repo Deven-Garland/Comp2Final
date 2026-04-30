@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-# ============================================================
-# server.py PATCH — ratings persistence
-# Replace these two methods in PlatformServer in server.py
-# ============================================================
-=======
 # Platform server (you implement).
 """
 server.py - Platform server runtime
@@ -171,7 +165,6 @@ class PlatformServer:
                 i += 1
             data[username] = tuple(rows)
         return data
->>>>>>> 1aff9d60f71789b1e9ad83afb7a27993c53d3024
 
     def _save_runtime_state(self):
         payload = HashTable()
