@@ -74,6 +74,7 @@ class ArcadeClient:
         self._current_game_id = ""
         self._session_id = ""
         self._chat_shown = HashTable()  # used as a set: key=msg tuple str, value=True
+        self._chat_channel = "global"
         self._ellie_game = None
         self._session_start_time = None
         self._leaderboard_from_play = False
@@ -379,7 +380,11 @@ class ArcadeClient:
 
     def _handle_send_chat(self, text: str) -> None:
         try:
-            resp = self._conn.send_chat(text, game=self._current_game_id or "global")
+            resp = self._conn.send_chat(
+                text,
+                chat_channel=self._chat_channel if self._session_id else None,
+                game=self._current_game_id or "global",
+            )
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._play.add_chat(self._username, text)
             else:
@@ -437,6 +442,7 @@ class ArcadeClient:
         self._play.clear_chat()
         self._chat_shown.clear()
         self._session_id = ""
+        self._chat_channel = "global"
         self._ellie_game = None
         self._go_to(AppScreen.BROWSER)
 
@@ -455,6 +461,8 @@ class ArcadeClient:
             on_send_chat=self._handle_send_chat,
             on_leave=self._handle_leave,
         )
+        self._chat_channel = f"{self._current_game_id}:{session_id}" if self._current_game_id else str(session_id)
+        self._play.set_chat_channel(self._chat_channel)
         self._play.add_chat("server", "Match found! Game starting...")
         self._chat_shown.clear()
 
@@ -466,8 +474,32 @@ class ArcadeClient:
             except Exception as e:
                 print(f"[ellie_game] Failed to load: {e}")
                 self._ellie_game = None
+        elif self._current_game_id in ("deven", "kimberly", "mennah", "vraj"):
+            try:
+                game_surface = self._play.game_subsurface(self._screen)
+                if self._current_game_id == "deven":
+                    from arcade_project.games.deven_game.game import DevenGame
+                    self._ellie_game = DevenGame(game_surface, self._username)
+                elif self._current_game_id == "kimberly":
+                    from arcade_project.games.kimberly_game.game import KimberlyGame
+                    self._ellie_game = KimberlyGame(game_surface, self._username)
+                elif self._current_game_id == "mennah":
+                    from arcade_project.games.mennah_game.game import MennahGame
+                    self._ellie_game = MennahGame(game_surface, self._username)
+                elif self._current_game_id == "vraj":
+                    from arcade_project.games.vraj_game.game import VrajGame
+                    self._ellie_game = VrajGame(game_surface, self._username)
+            except Exception as e:
+                print(f"[{self._current_game_id}_game] Failed to load: {e}")
+                self._ellie_game = None
         else:
             self._ellie_game = None
+
+        if self._ellie_game is not None and hasattr(self._ellie_game, "level") and self._ellie_game.level:
+            try:
+                self._ellie_game.level.network.game_id = self._chat_channel
+            except Exception:
+                pass
 
         self._go_to(AppScreen.PLAY)
 
@@ -511,7 +543,7 @@ class ArcadeClient:
                         key = (msg.get("sender"), msg.get("message"), msg.get("time"))
                         if key not in self._chat_shown and msg.get("sender") != self._username:
                             self._play.add_chat(msg["sender"], msg["message"], msg.get("time", 0.0))
-                            self._chat_shown.add(key)
+                            self._chat_shown[key] = True
             except Exception as e:
                 print(f"[poll chat] {e}")
 
@@ -557,7 +589,8 @@ class ArcadeClient:
                 try:
                     self._ellie_game.update(dt)
                     if self._ellie_game.state == "done":
-                        self._handle_leave(reason="death")
+                        reason = getattr(self._ellie_game, "leave_reason", None) or "death"
+                        self._handle_leave(reason=reason)
                 except Exception as e:
                     print(f"[ellie_game] update error: {e}")
 
