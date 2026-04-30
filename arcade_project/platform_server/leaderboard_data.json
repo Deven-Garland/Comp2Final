@@ -37,7 +37,7 @@
     },
     "ellie:disconnects": {
       "Deven": 3,
-      "gizmo": 2,
+      "gizmo": 3,
       "mennah": 1
     },
     "kimberly:disconnects": {
@@ -48,7 +48,7 @@
     },
     "ellie:sessions": {
       "Deven": 4,
-      "gizmo": 11,
+      "gizmo": 12,
       "deven": 1,
       "mennah": 5
     },
@@ -62,7 +62,7 @@
     },
     "ellie:play_time": {
       "Deven": 1,
-      "gizmo": 1,
+      "gizmo": 2,
       "deven": 0,
       "mennah": 1
     },
@@ -80,7 +80,7 @@
     },
     "global:sessions": {
       "Deven": 15,
-      "gizmo": 18,
+      "gizmo": 19,
       "Deven1": 2,
       "deven": 1,
       "mennah": 11
@@ -157,7 +157,7 @@
     },
     "ellie:disconnects": {
       "Deven": 3,
-      "gizmo": 2,
+      "gizmo": 3,
       "mennah": 1
     },
     "vraj:play_time": {
@@ -235,13 +235,13 @@
     },
     "ellie:sessions": {
       "Deven": 4,
-      "gizmo": 11,
+      "gizmo": 12,
       "deven": 1,
       "mennah": 5
     },
     "ellie:play_time": {
       "Deven": 1,
-      "gizmo": 1,
+      "gizmo": 2,
       "deven": 0,
       "mennah": 1
     },
@@ -250,7 +250,7 @@
     },
     "global:sessions": {
       "Deven": 15,
-      "gizmo": 18,
+      "gizmo": 19,
       "Deven1": 2,
       "deven": 1,
       "mennah": 11
