@@ -509,7 +509,28 @@ class ArcadeClient:
                 max_players = status.get("max_players", 30)
                 self._play.set_connection_status(current_players, max_players)
             except Exception:
-                pass
+                self._sync_play_connections_from_game()
+
+    def _sync_play_connections_from_game(self) -> None:
+        """
+        Fallback connection count source from active game state.
+        This keeps the chat panel's Connections X/30 in sync even if
+        platform-server polling fails temporarily.
+        """
+        if self._current != AppScreen.PLAY or self._ellie_game is None:
+            return
+        if not hasattr(self._ellie_game, "level") or self._ellie_game.level is None:
+            return
+        level = self._ellie_game.level
+        if not hasattr(level, "other_players"):
+            return
+        try:
+            current_players = len(level.other_players) + (1 if getattr(level, "connected", False) else 0)
+            if current_players < 0:
+                current_players = 0
+            self._play.set_connection_status(current_players, 30)
+        except Exception:
+            pass
 
     def run(self) -> None:
         self._running = True
@@ -544,6 +565,7 @@ class ArcadeClient:
                 self._ellie_game.chat_focused = self._play.chat_input_focused
                 try:
                     self._ellie_game.update(dt)
+                    self._sync_play_connections_from_game()
                     if self._ellie_game.state == "done":
                         reason = getattr(self._ellie_game, "leave_reason", None) or "death"
                         self._handle_leave(reason=reason)
