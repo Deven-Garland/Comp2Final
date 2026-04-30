@@ -26,14 +26,28 @@ from datastructures.array import ArrayList
 # Keyword filter — fast, offline, no API needed
 # ---------------------------------------------------------------------------
  
-_BAD_WORDS = (
-    "fuck", "bitch", "hate", "kys", "idiot"
-)
- 
-_GAME_SAFE = (
-    "killed", "kill", "die", "died", "death", "shoot", "shot",
-    "destroyed", "dead", "murder", "attack", "fight", "destroy"
-)
+_BAD_WORDS = ArrayList()
+_BAD_WORDS.append("fuck")
+_BAD_WORDS.append("shit")
+_BAD_WORDS.append("bitch")
+_BAD_WORDS.append("hate")
+_BAD_WORDS.append("kys")
+_BAD_WORDS.append("idiot")
+
+_GAME_SAFE = ArrayList()
+_GAME_SAFE.append("killed")
+_GAME_SAFE.append("kill")
+_GAME_SAFE.append("die")
+_GAME_SAFE.append("died")
+_GAME_SAFE.append("death")
+_GAME_SAFE.append("shoot")
+_GAME_SAFE.append("shot")
+_GAME_SAFE.append("destroyed")
+_GAME_SAFE.append("dead")
+_GAME_SAFE.append("murder")
+_GAME_SAFE.append("attack")
+_GAME_SAFE.append("fight")
+_GAME_SAFE.append("destroy")
  
  
 class KeywordFilter:
