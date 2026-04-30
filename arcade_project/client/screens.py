@@ -1,7 +1,7 @@
 """
 UI screens for the arcade client (pygame).
 
-Screens: Login, Game Browser, Stats, Match Queue, Play Session (game area + chat).
+Screens: Login, Game Browser, Stats, GameStats, Match Queue, Play Session (game area + chat).
 
 Wire callbacks from arcade_client / connection layer; this module only handles
 drawing and input.
@@ -97,8 +97,6 @@ class TextInput:
         self.focused = False
         self.password = password
         self._cursor_blink = 0.0
-        # Optional bounding rect — clicks outside this won't steal focus.
-        # Set by PlaySessionScreen so game-area clicks don't unfocus the input.
         self.focus_region: Optional[pygame.Rect] = None
 
     def draw(self, surface: pygame.Surface) -> None:
@@ -115,8 +113,6 @@ class TextInput:
     def handle_event(self, event: pygame.event.Event) -> bool:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             clicked_input = self.rect.collidepoint(event.pos)
-            # FIX: only lose focus if the click is within the allowed focus_region
-            # (the chat panel). Clicks in the game area should not unfocus the input.
             in_region = (
                 self.focus_region is None or
                 self.focus_region.collidepoint(event.pos)
@@ -233,6 +229,7 @@ class BrowserScreen:
         on_rate: Optional[Callable[[str, int], bool]] = None,
         on_search_players: Optional[Callable[[str], List[dict]]] = None,
         on_select_player: Optional[Callable[[str], Optional[dict]]] = None,
+        on_game_stats: Optional[Callable[[str], None]] = None,
         games: Optional[List[GameInfo]] = None,
     ):
         self.rect = rect
@@ -244,16 +241,17 @@ class BrowserScreen:
         self.on_rate = on_rate
         self.on_search_players = on_search_players
         self.on_select_player = on_select_player
+        self.on_game_stats = on_game_stats
         self.favorite_game_id = ""
         self.game_ratings = HashTable()
         self.user_ratings = HashTable()
         self.games = ArrayList()
         default_games = (
-            GameInfo("deven", "Deven's Game", "Fast reflex mini-game"),
-            GameInfo("ellie", "Ellie's Game", "Puzzle challenge"),
-            GameInfo("kimberly", "Kimberly's Game", "Score attack"),
-            GameInfo("mennah", "Mennah's Game", "Strategy lite"),
-            GameInfo("vraj", "Vraj's Game", "Endless runner"),
+            GameInfo("deven",    "Where the Fog Remembers", "Horror/adventure · explore & chat"),
+            GameInfo("ellie",    "Eli's Legacy",            "Fantasy/adventure · compete for high score"),
+            GameInfo("kimberly", "Fate of the Fists",       "Adventure/combat · fight to win"),
+            GameInfo("mennah",   "Doom in Delta",           "Historical RPG · complete secret missions"),
+            GameInfo("vraj",     "Echoes of the Iron Realm","Top-down action RPG · real-time multiplayer"),
         )
         for game in games or default_games:
             self.games.append(game)
@@ -275,6 +273,10 @@ class BrowserScreen:
         self._btn_lb = Button(pygame.Rect(rect.right - pad - 130, rect.y + 24, 120, 36), "Leaderboard")
         self._btn_play = Button(pygame.Rect(rect.right - pad - 160, rect.bottom - 72, 150, 44), "Find match")
         self._btn_out = Button(pygame.Rect(rect.x + pad, rect.bottom - 72, 120, 44), "Log out")
+        # "My Stats" button shown when a game row is selected, bottom-center
+        self._btn_game_stats = Button(
+            pygame.Rect(rect.centerx - 75, rect.bottom - 72, 150, 44), "My Stats"
+        )
 
     def _search_results_rect(self) -> pygame.Rect:
         rows = min(6, len(self._search_results))
@@ -306,7 +308,6 @@ class BrowserScreen:
         self.user_ratings[game_id] = max(1, min(5, int(stars)))
 
     def _load_star_icon(self) -> None:
-        # Try common asset locations, including the team's existing Graphic/star.png.
         root = Path(__file__).resolve().parents[2]
         candidates = (
             root / "arcade_project" / "Graphic" / "star.png",
@@ -377,6 +378,13 @@ class BrowserScreen:
                 self.on_play(gid)
             elif self._btn_out.contains(event.pos):
                 self.on_logout()
+            elif (
+                self._btn_game_stats.contains(event.pos)
+                and self._selected is not None
+                and self.on_game_stats
+            ):
+                gid = self.games[self._selected].id
+                self.on_game_stats(gid)
             elif self._list_rect.collidepoint(event.pos):
                 row_h = 56
                 y = event.pos[1] - self._list_rect.y + self._scroll
@@ -476,7 +484,6 @@ class BrowserScreen:
             if self._star_icon is not None:
                 surface.blit(self._star_icon, (rating_rect.x, rating_rect.y + 2))
             else:
-                # Fallback when star PNG is not present.
                 points = ArrayList()
                 cx, cy = rating_rect.x + 8, rating_rect.y + 10
                 for n in range(10):
@@ -487,7 +494,6 @@ class BrowserScreen:
             rt = SMALL_FONT.render(f"{rating:.1f}", True, COLORS["text"])
             surface.blit(rt, (rating_rect.x + 20, rating_rect.y + 1))
 
-            # Clickable 1-5 personal rating control.
             selected = int(self.user_ratings[g.id]) if g.id in self.user_ratings else 0
             rating_click_rect = self._rating_click_rect_for_row(rr)
             for star_idx in range(1, 6):
@@ -522,6 +528,10 @@ class BrowserScreen:
         self._btn_play.enabled = self._selected is not None
         self._btn_play.draw(surface, self._btn_play.contains(mp))
         self._btn_out.draw(surface, self._btn_out.contains(mp))
+
+        # "My Stats" button only shown when a game is selected
+        if self._selected is not None and self.on_game_stats:
+            self._btn_game_stats.draw(surface, self._btn_game_stats.contains(mp))
 
         if self._selected_profile:
             box = pygame.Rect(self.rect.right - 304, self.rect.y + 132, 280, 122)
@@ -622,6 +632,99 @@ class StatsScreen:
 
         mp = pygame.mouse.get_pos()
         self._btn_back.draw(surface, self._btn_back.contains(mp))
+
+
+# --- Per-game stats screen -------------------------------------------------
+
+
+class GameStatsScreen:
+    """Shows a single player's stats for one specific game."""
+
+    # Human-readable labels for each stat key
+    STAT_LABELS = (
+        ("sessions",     "Sessions Played"),
+        ("score",        "Best Score"),
+        ("play_time",    "Minutes Played"),
+        ("chats",        "Chats Sent"),
+        ("deaths",       "Deaths"),
+        ("disconnects",  "Disconnects"),
+    )
+
+    def __init__(self, rect: pygame.Rect, on_back: Callable[[], None]):
+        self.rect = rect
+        self.on_back = on_back
+        self._game_name = ""
+        self._stats: HashTable = HashTable()   # stat_key -> HashTable with "rank" and optional "value"
+        pad = 24
+        self._btn_back = Button(pygame.Rect(rect.x + pad, rect.y + pad, 120, 40), "Back")
+
+    def set_stats(self, game_name: str, stats: HashTable) -> None:
+        self._game_name = game_name
+        self._stats = stats
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._btn_back.contains(event.pos):
+                self.on_back()
+
+    def update(self, dt: float) -> None:
+        pass
+
+    def draw(self, surface: pygame.Surface) -> None:
+        pygame.draw.rect(surface, COLORS["bg"], self.rect)
+
+        title = TITLE_FONT.render(self._game_name or "Game Stats", True, COLORS["accent"])
+        surface.blit(title, title.get_rect(center=(self.rect.centerx, self.rect.y + 70)))
+        sub = SMALL_FONT.render("Your personal stats for this game", True, COLORS["text_dim"])
+        surface.blit(sub, sub.get_rect(center=(self.rect.centerx, self.rect.y + 115)))
+
+        gap = 16
+        cols = 3
+        card_w = (self.rect.width - 48 - gap * (cols - 1)) // cols
+        card_h = 110
+        grid_top = self.rect.y + 148
+        total_w = cols * card_w + (cols - 1) * gap
+        x0 = self.rect.centerx - total_w // 2
+
+        for i, (stat_key, label) in enumerate(self.STAT_LABELS):
+            col = i % cols
+            row = i // cols
+            x = x0 + col * (card_w + gap)
+            y = grid_top + row * (card_h + gap)
+            rr = pygame.Rect(x, y, card_w, card_h)
+            pygame.draw.rect(surface, COLORS["panel"], rr, border_radius=12)
+            pygame.draw.rect(surface, COLORS["border"], rr, 1, border_radius=12)
+
+            lab = SMALL_FONT.render(label.upper(), True, COLORS["text_dim"])
+            surface.blit(lab, (rr.x + 14, rr.y + 12))
+
+            entry = self._stats[stat_key] if stat_key in self._stats else None
+            rank = entry.get("rank") if entry and hasattr(entry, "get") else None
+            value = entry.get("value") if entry and hasattr(entry, "get") else None
+
+            # Show value if we have it, otherwise show rank
+            if value is not None:
+                main_text = str(value)
+                sub_text = f"Rank #{rank}" if rank is not None else ""
+            elif rank is not None:
+                main_text = f"Rank #{rank}"
+                sub_text = ""
+            else:
+                main_text = "—"
+                sub_text = "No data yet"
+
+            val_surf = BODY_FONT.render(main_text, True, COLORS["text"])
+            surface.blit(val_surf, (rr.x + 14, rr.y + 42))
+
+            if sub_text:
+                sub_surf = SMALL_FONT.render(sub_text, True, COLORS["text_dim"])
+                surface.blit(sub_surf, (rr.x + 14, rr.y + 72))
+
+        mp = pygame.mouse.get_pos()
+        self._btn_back.draw(surface, self._btn_back.contains(mp))
+
+
+# --- Leaderboard -----------------------------------------------------------
 
 
 class LeaderboardScreen:
@@ -755,7 +858,6 @@ class QueueScreen:
         self.game_name = game_name
         self.on_cancel = on_cancel
         self.detail = "Talking to matchmaker..."
-        pad = 24
         self._btn_cancel = Button(pygame.Rect(rect.centerx - 70, rect.centery + 80, 140, 44), "Cancel")
 
     def set_detail(self, text: str) -> None:
@@ -838,8 +940,6 @@ class PlaySessionScreen:
             ),
             "Type a message…",
         )
-        # FIX: restrict focus loss to clicks within the chat panel only.
-        # Clicking in the game area will not unfocus the chat input.
         self._input.focus_region = self._chat_rect
 
         self._btn_send = Button(
@@ -850,7 +950,6 @@ class PlaySessionScreen:
 
     @property
     def chat_input_focused(self) -> bool:
-        """True when the chat text box has focus — blocks game keyboard input."""
         return self._input.focused
 
     def add_chat(self, sender: str, text: str, timestamp: float = 0.0) -> None:
@@ -872,7 +971,6 @@ class PlaySessionScreen:
     def handle_event(self, event: pygame.event.Event) -> None:
         self._input.handle_event(event)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # FIX: clicking in the game area unfocuses chat so player can move again
             if self._game_rect.collidepoint(event.pos):
                 self._input.focused = False
             elif self._btn_send.contains(event.pos):
@@ -942,6 +1040,7 @@ class AppScreen(Enum):
     LOGIN = auto()
     BROWSER = auto()
     STATS = auto()
+    GAME_STATS = auto()
     LEADERBOARD = auto()
     QUEUE = auto()
     PLAY = auto()
@@ -959,6 +1058,7 @@ __all__ = (
     "GameInfo",
     "PlayerStats",
     "StatsScreen",
+    "GameStatsScreen",
     "LeaderboardScreen",
     "QueueScreen",
     "PlaySessionScreen",

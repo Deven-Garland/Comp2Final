@@ -6,6 +6,8 @@ Date: Spring 2026
 Lab: Final Project
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import time
@@ -18,6 +20,7 @@ from client.screens import (
     AppScreen,
     BrowserScreen,
     GameInfo,
+    GameStatsScreen,
     LeaderboardScreen,
     LoginScreen,
     PlayerStats,
@@ -39,11 +42,11 @@ SERVER_PORT = 9000
 
 def _build_game_list():
     games = ArrayList()
-    games.append(GameInfo("deven", "Deven's Game", "Fast reflex mini-game"))
-    games.append(GameInfo("ellie", "Ellie's Game", "Puzzle challenge"))
-    games.append(GameInfo("kimberly", "Kimberly's Game", "Score attack"))
-    games.append(GameInfo("mennah", "Mennah's Game", "Strategy lite"))
-    games.append(GameInfo("vraj", "Vraj's Game", "Endless runner"))
+    games.append(GameInfo("deven",    "Where the Fog Remembers", "Horror/adventure · explore & chat"))
+    games.append(GameInfo("ellie",    "Eli's Legacy",            "Fantasy/adventure · compete for high score"))
+    games.append(GameInfo("kimberly", "Fate of the Fists",       "Adventure/combat · fight to win"))
+    games.append(GameInfo("mennah",   "Doom in Delta",           "Historical RPG · complete secret missions"))
+    games.append(GameInfo("vraj",     "Echoes of the Iron Realm","Top-down action RPG · real-time multiplayer"))
     return games
 
 
@@ -95,9 +98,11 @@ class ArcadeClient:
             on_rate=self._handle_rate,
             on_search_players=self._handle_search_players,
             on_select_player=self._handle_select_player,
+            on_game_stats=self._handle_game_stats,
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
+        self._game_stats = GameStatsScreen(full, on_back=self._handle_back_to_browser)
         self._leaderboard = LeaderboardScreen(
             full,
             on_back=self._handle_back_to_browser,
@@ -126,6 +131,8 @@ class ArcadeClient:
             return self._browser
         if self._current == AppScreen.STATS:
             return self._stats
+        if self._current == AppScreen.GAME_STATS:
+            return self._game_stats
         if self._current == AppScreen.LEADERBOARD:
             return self._leaderboard
         if self._current == AppScreen.QUEUE:
@@ -257,6 +264,41 @@ class ArcadeClient:
             pass
         self._go_to(AppScreen.STATS)
 
+    def _handle_game_stats(self, game_id: str) -> None:
+        """Load per-game stats for the selected game and show the GameStatsScreen."""
+        game_name = GAME_NAMES.get(game_id, game_id) if game_id else game_id
+        stat_keys = ("score", "sessions", "play_time", "chats", "deaths", "disconnects")
+        stats = HashTable()
+        for stat in stat_keys:
+            try:
+                rank_resp = self._conn.get_player_rank(self._username, game_id, stat=stat)
+                rank = rank_resp.get("data") if rank_resp.get("status") == "ok" else None
+                stats[stat] = HashTable()
+                stats[stat]["rank"] = rank
+            except Exception:
+                stats[stat] = HashTable()
+                stats[stat]["rank"] = None
+
+        # Also pull the counter values from the leaderboard top_players call
+        try:
+            top_resp = self._conn.get_game_leaderboard(game_id, stat="sessions", top_n=50)
+            if top_resp.get("status") == "ok":
+                for entry in (top_resp.get("data") or []):
+                    entry_str = str(entry)
+                    if self._username in entry_str:
+                        # entry is a LeaderboardEntry str like "username: score"
+                        parts = entry_str.split(":")
+                        if len(parts) == 2:
+                            try:
+                                stats["sessions"]["value"] = int(parts[1].strip())
+                            except ValueError:
+                                pass
+        except Exception:
+            pass
+
+        self._game_stats.set_stats(game_name, stats)
+        self._go_to(AppScreen.GAME_STATS)
+
     def _handle_back_to_browser(self) -> None:
         if self._leaderboard_from_play and self._session_id:
             self._leaderboard_from_play = False
@@ -366,12 +408,19 @@ class ArcadeClient:
                 pass
 
         if self._session_id:
+            # Pull final score from game if available, default 0
+            final_score = 0
+            if self._ellie_game is not None:
+                try:
+                    final_score = int(getattr(self._ellie_game, "score", 0))
+                except Exception:
+                    final_score = 0
             try:
                 self._conn._request("end_game", {
                     "game_id": int(self._session_id),
                     "players": [self._username],
                     "winner": self._username,
-                    "score": 0,
+                    "score": final_score,
                     "game": self._current_game_id or "global",
                 })
             except Exception as e:
@@ -432,7 +481,6 @@ class ArcadeClient:
                         ("game", self._current_game_id or "global"),
                     )),
                 )
-                # Backward compatibility: some server copies still use try_create_match() with no params.
                 if resp.get("status") != "ok":
                     message = str(resp.get("message", ""))
                     if "bad request parameters" in message:
