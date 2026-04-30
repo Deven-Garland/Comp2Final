@@ -86,8 +86,9 @@ class SpriteLoader:
             "balanced_prodigy": "thief",
             "heavy_enforcer": "hobbit",
         }
-        name_lower = asset_alias.get(name_lower, name_lower)
         name_slug = name_lower.replace(" ", "_")
+        resolved_name = asset_alias.get(name_slug, name_slug)
+        name_slug = resolved_name.replace(" ", "_")
         animations = {}
         
         # Define all possible statuses
