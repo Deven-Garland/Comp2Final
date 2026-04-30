@@ -270,7 +270,7 @@ class ArcadeClient:
             fav_name = GAME_NAMES.get(fav_id, fav_id) if fav_id else "None"
             messages = self._conn.get_messages_sent(self._username)
             self._stats.set_stats(PlayerStats(
-                games_played=0,
+                games_played=int(self._conn._request("get_player_stats", {"username": self._username}).get("data", {}).get("games_played", 0)),
                 messages_sent=int(messages) if messages else 0,
                 favorite_game=fav_name,
                 minutes_played=int(minutes) if minutes else 0,
