@@ -62,13 +62,19 @@ class SpriteLoader:
             dict: {status: [pygame.Surface, ...], ...}
         """
         name_lower = name.lower()
+        name_slug = name_lower.replace(" ", "_")
         animations = {}
         
         # Define all possible statuses
         statuses = ['up', 'down', 'left', 'right', 'up_idle', 'down_idle', 'left_idle', 'right_idle']
         
         # Check for animated sprites (subdirectory structure)
-        character_dir = os.path.join(base_path, name_lower)
+        character_dir = os.path.join(base_path, name_slug)
+        static_path = os.path.join(base_path, f"{name_slug}.png")
+        # Kimberly assets also exist under graphics/graphics/* in this repo.
+        fallback_base = os.path.join(os.path.dirname(base_path), "graphics", os.path.basename(base_path))
+        fallback_dir = os.path.join(fallback_base, name_slug)
+        fallback_static = os.path.join(fallback_base, f"{name_slug}.png")
         
         print(f"  Checking for animated sprites at: {character_dir}")
         print(f"  Directory exists: {os.path.exists(character_dir)}")
@@ -84,13 +90,18 @@ class SpriteLoader:
             
         else:
             # Static sprite - single image file
-            static_path = os.path.join(base_path, f"{name_lower}.png")
             print(f"  Checking for static sprite at: {static_path}")
             print(f"  File exists: {os.path.exists(static_path)}")
             
             if os.path.exists(static_path):
                 print(f"  Loading static sprite for {name} from {static_path}")
                 animations = SpriteLoader._load_static_sprite(static_path, statuses)
+            elif os.path.exists(fallback_dir) and os.path.isdir(fallback_dir):
+                print(f"  Loading fallback animated sprites for {name} from {fallback_dir}")
+                animations = SpriteLoader._load_animated_sprites(fallback_dir, statuses)
+            elif os.path.exists(fallback_static):
+                print(f"  Loading fallback static sprite for {name} from {fallback_static}")
+                animations = SpriteLoader._load_static_sprite(fallback_static, statuses)
             else:
                 # No sprites found - create defaults
                 print(f"  No sprites found for {name}, using default colored rectangles")

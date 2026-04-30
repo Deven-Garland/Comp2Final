@@ -19,6 +19,7 @@ from datastructures.hash_table import HashTable
 from client.screens import (
     AppScreen,
     BrowserScreen,
+    GameOverScreen,
     GameInfo,
     GameStatsScreen,
     LeaderboardScreen,
@@ -105,6 +106,7 @@ class ArcadeClient:
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
+        self._game_over = GameOverScreen(full, on_back=self._handle_back_to_browser)
         self._history = MatchHistoryScreen(
             full,
             on_back=self._handle_back_to_browser,
@@ -142,6 +144,8 @@ class ArcadeClient:
             return self._stats
         if self._current == AppScreen.HISTORY:
             return self._history
+        if self._current == AppScreen.GAME_OVER:
+            return self._game_over
         if self._current == AppScreen.GAME_STATS:
             return self._game_stats
         if self._current == AppScreen.LEADERBOARD:
@@ -281,31 +285,34 @@ class ArcadeClient:
         stat_keys = ("score", "sessions", "play_time", "chats", "deaths", "disconnects")
         stats = HashTable()
         for stat in stat_keys:
+            stats[stat] = HashTable()
+            stats[stat]["rank"] = None
+            stats[stat]["value"] = 0
             try:
-                rank_resp = self._conn.get_player_rank(self._username, game_id, stat=stat)
-                rank = rank_resp.get("data") if rank_resp.get("status") == "ok" else None
-                stats[stat] = HashTable()
-                stats[stat]["rank"] = rank
-            except Exception:
-                stats[stat] = HashTable()
-                stats[stat]["rank"] = None
-
-        # Also pull the counter values from the leaderboard top_players call
-        try:
-            top_resp = self._conn.get_game_leaderboard(game_id, stat="sessions", top_n=50)
-            if top_resp.get("status") == "ok":
-                for entry in (top_resp.get("data") or []):
-                    entry_str = str(entry)
-                    if self._username in entry_str:
-                        # entry is a LeaderboardEntry str like "username: score"
+                top_resp = self._conn.get_game_leaderboard(game_id, stat=stat, top_n=250)
+                if top_resp.get("status") == "ok":
+                    top_rows = top_resp.get("data") or ()
+                    for idx, entry in enumerate(top_rows):
+                        entry_str = str(entry)
                         parts = entry_str.split(":")
-                        if len(parts) == 2:
-                            try:
-                                stats["sessions"]["value"] = int(parts[1].strip())
-                            except ValueError:
-                                pass
-        except Exception:
-            pass
+                        if len(parts) != 2:
+                            continue
+                        name = parts[0].strip()
+                        if name != self._username:
+                            continue
+                        raw_value = parts[1].strip()
+                        try:
+                            stats[stat]["value"] = int(float(raw_value))
+                        except Exception:
+                            stats[stat]["value"] = raw_value
+                        stats[stat]["rank"] = idx + 1
+                        break
+                if stats[stat]["rank"] is None:
+                    rank_resp = self._conn.get_player_rank(self._username, game_id, stat=stat)
+                    if rank_resp.get("status") == "ok":
+                        stats[stat]["rank"] = rank_resp.get("data")
+            except Exception:
+                pass
 
         self._game_stats.set_stats(game_name, stats)
         self._go_to(AppScreen.GAME_STATS)
@@ -424,7 +431,9 @@ class ArcadeClient:
             self._play.add_chat("server", "Message failed to send.")
 
     def _handle_leave(self, reason: str = "disconnect") -> None:
+        elapsed_seconds = 0
         if self._session_start_time is not None:
+            elapsed_seconds = max(0, int(time.time() - self._session_start_time))
             elapsed_minutes = int((time.time() - self._session_start_time) / 60)
             if elapsed_minutes > 0:
                 try:
@@ -457,6 +466,7 @@ class ArcadeClient:
                     "winner": self._username,
                     "score": final_score,
                     "game": self._current_game_id or "global",
+                    "duration": elapsed_seconds,
                 })
             except Exception as e:
                 print(f"[leave] end_game error: {e}")
@@ -474,7 +484,12 @@ class ArcadeClient:
         self._session_id = ""
         self._chat_channel = "global"
         self._ellie_game = None
-        self._go_to(AppScreen.BROWSER)
+        if reason == "death":
+            game_name = GAME_NAMES.get(self._current_game_id, self._current_game_id) if self._current_game_id else "Game"
+            self._game_over.set_context(game_name, "Health reached 0.")
+            self._go_to(AppScreen.GAME_OVER)
+        else:
+            self._go_to(AppScreen.BROWSER)
 
     def _on_match_found(self, session_id: str) -> None:
         self._session_id = session_id

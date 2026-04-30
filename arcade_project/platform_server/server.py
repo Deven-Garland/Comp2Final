@@ -43,6 +43,7 @@ DEFAULT_GAME_HOST = os.getenv("PLATFORM_GAME_HOST", "127.0.0.1")
 GAME_SERVER_ENV = os.getenv("PLATFORM_GAME_SERVERS", "")
 RUNTIME_STATE_FILE = Path(__file__).with_name("runtime_state.json")
 RATINGS_STATE_FILE = Path(__file__).with_name("ratings_data.json")
+LEADERBOARD_STATE_FILE = Path(__file__).with_name("leaderboard_data.json")
 
 REQUEST_TYPE_KEYS = ("type", "action")
 RESERVED_REQUEST_KEYS = (*REQUEST_TYPE_KEYS, "request_id", "params")
@@ -93,6 +94,7 @@ class PlatformServer:
             game_names.append(game_name)
         self.ratings = Ratings(game_names)
         self._ratings_loaded_from_file = False
+        self._leaderboards_loaded_from_file = False
         self.players_per_match = players_per_match
         self.max_players_per_instance = DEFAULT_MAX_PLAYERS_PER_INSTANCE
         self.next_game_id = 1
@@ -107,6 +109,7 @@ class PlatformServer:
 
         self.data_ingest = DataIngest(self.accounts, self.leaderboard, self.catalog)
         self.data_ingest.load_data()
+        self._leaderboards_loaded_from_file = self._load_leaderboard_state()
         self._ratings_loaded_from_file = self._load_ratings_state()
         self._load_runtime_state()
 
@@ -185,7 +188,63 @@ class PlatformServer:
                 json.dump(_to_builtin_json(payload), file, indent=2)
         except Exception as error:
             print(f"[platform] Could not save runtime state: {error}")
+        self._save_leaderboard_state()
         self._save_ratings_state()
+
+    def _serialize_leaderboard(self, board):
+        rows = HashTable()
+        for username in board._entries:
+            entry = board._entries[username]
+            rows[username] = int(entry.score)
+        return rows
+
+    def _save_leaderboard_state(self):
+        payload = HashTable()
+        payload["global_leaderboard"] = self._serialize_leaderboard(self.leaderboard)
+        payload["game_leaderboards"] = HashTable()
+        for board_name in self.game_leaderboards:
+            payload["game_leaderboards"][board_name] = self._serialize_leaderboard(self.game_leaderboards[board_name])
+        payload["game_counters"] = self._serialize_game_counters()
+        try:
+            with open(LEADERBOARD_STATE_FILE, "w", encoding="utf-8") as file:
+                json.dump(_to_builtin_json(payload), file, indent=2)
+        except Exception as error:
+            print(f"[platform] Could not save leaderboard state: {error}")
+
+    def _load_leaderboard_state(self):
+        if not LEADERBOARD_STATE_FILE.exists():
+            return False
+        try:
+            with open(LEADERBOARD_STATE_FILE, "r", encoding="utf-8") as file:
+                payload = json.load(file)
+        except Exception as error:
+            print(f"[platform] Could not load leaderboard state: {error}")
+            return False
+
+        self.leaderboard = Leaderboard()
+        self.game_leaderboards = HashTable()
+        self.game_counters = HashTable()
+        loaded_any = False
+
+        for username, score in payload.get("global_leaderboard", {}).items():
+            self.leaderboard.add_score(username, int(score))
+            loaded_any = True
+
+        for board_name, entries in payload.get("game_leaderboards", {}).items():
+            board = Leaderboard()
+            for username, score in entries.items():
+                board.add_score(username, int(score))
+                loaded_any = True
+            self.game_leaderboards[board_name] = board
+
+        for board_name, raw_counter in payload.get("game_counters", {}).items():
+            counters = HashTable()
+            for username, score in raw_counter.items():
+                counters[username] = int(score)
+                loaded_any = True
+            self.game_counters[board_name] = counters
+
+        return loaded_any
 
     def _serialize_ratings(self):
         """Convert ratings to a plain dict: {game_name: [score, score, ...]}"""
@@ -259,16 +318,18 @@ class PlatformServer:
                 members[username] = True
             self.instance_players[int(game_id)] = members
 
-        # Restore per-board counters and rebuild corresponding leaderboard entries.
-        self.game_counters = HashTable()
-        self.game_leaderboards = HashTable()
-        for board_name, raw_counter in payload.get("game_counters", {}).items():
-            counters = HashTable()
-            for username, score in raw_counter.items():
-                numeric_score = int(score)
-                counters[username] = numeric_score
-                self._set_board_score(board_name, username, numeric_score)
-            self.game_counters[board_name] = counters
+        # Restore per-board counters and rebuild corresponding leaderboard entries
+        # only when dedicated leaderboard state file was not loaded.
+        if not self._leaderboards_loaded_from_file:
+            self.game_counters = HashTable()
+            self.game_leaderboards = HashTable()
+            for board_name, raw_counter in payload.get("game_counters", {}).items():
+                counters = HashTable()
+                for username, score in raw_counter.items():
+                    numeric_score = int(score)
+                    counters[username] = numeric_score
+                    self._set_board_score(board_name, username, numeric_score)
+                self.game_counters[board_name] = counters
 
         # Restore match history.
         for username, matches in payload.get("history", {}).items():
@@ -448,8 +509,16 @@ class PlatformServer:
         payload["max_players"] = self.max_players_per_instance
         return payload
 
-    def end_game(self, game_id, players, winner, score, game="global"):
-        self.history.add_match(game_id, players, winner, score=score, duration=0, game_name=game)
+    def end_game(self, game_id, players, winner, score, game="global", duration=0):
+        session_duration = int(duration) if duration is not None else 0
+        self.history.add_match(
+            game_id,
+            players,
+            winner,
+            score=score,
+            duration=session_duration,
+            game_name=game,
+        )
         self.leaderboard.add_score(winner, score)
         self._set_board_score(f"{game}:score", winner, score)
         self._set_board_score("global:score", winner, score)
@@ -458,7 +527,7 @@ class PlatformServer:
                 game=game,
                 username=player,
                 score=score if player == winner else 0,
-                play_time=0,
+                play_time=max(0, session_duration // 60),
             )
         self._remove_players_from_instance(game_id, players)
         self._save_runtime_state()

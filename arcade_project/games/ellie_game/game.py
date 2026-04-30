@@ -193,6 +193,11 @@ class EllieGame:
 
     def update(self, dt: float) -> None:
         if self.state == "play" and self.level:
+            if getattr(self.level.player, "hp", 1) <= 0:
+                self.leave_reason = "death"
+                self.cleanup()
+                self.state = "done"
+                return
             # FIX: suppress player input while chat is focused
             self.level.player.input_enabled = not self.chat_focused
             self.level.player.update()

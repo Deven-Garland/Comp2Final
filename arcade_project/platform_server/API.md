@@ -33,7 +33,7 @@ This is the network API your clients use to talk to the platform.
 - `join_queue(username)` -> `bool`
 - `try_create_match()` -> `null` or `{"game_id": int, "players": [..]}`
 - `instance_status(game_id)` -> `{"game_id": int, "current_players": int, "max_players": int}`
-- `end_game(game_id, players, winner, score, game="global")` -> `true`
+- `end_game(game_id, players, winner, score, game="global", duration=0)` -> `true`
 - `record_session_result(game, username, score=0, play_time=0, chats_delta=0, deaths_delta=0, disconnects_delta=0)` -> `bool`
 - `player_disconnected(username, game="global")` -> `bool`
 - `player_died(username, game="global")` -> `bool`

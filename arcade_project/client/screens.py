@@ -336,21 +336,25 @@ class BrowserScreen:
     def _rating_click_rect_for_row(self, rr: pygame.Rect) -> pygame.Rect:
         return pygame.Rect(rr.right - 228, rr.centery - 10, 106, 20)
 
+    def _refresh_search_results(self) -> None:
+        query = self._search_input.text.strip()
+        if query == self._last_search_text:
+            return
+        self._last_search_text = query
+        if not self.on_search_players or not query:
+            self._search_results = ArrayList()
+            return
+        raw_results = self.on_search_players(query)
+        self._search_results = ArrayList()
+        max_items = min(6, len(raw_results))
+        for i in range(max_items):
+            self._search_results.append(raw_results[i])
+
     def handle_event(self, event: pygame.event.Event) -> None:
         self._search_input.handle_event(event)
 
         if event.type == pygame.KEYDOWN and self._search_input.focused:
-            query = self._search_input.text.strip()
-            if query != self._last_search_text:
-                self._last_search_text = query
-                if self.on_search_players and query:
-                    self._search_results = ArrayList()
-                    raw_results = self.on_search_players(query)
-                    max_items = min(6, len(raw_results))
-                    for i in range(max_items):
-                        self._search_results.append(raw_results[i])
-                else:
-                    self._search_results = ArrayList()
+            self._refresh_search_results()
             if event.key == pygame.K_RETURN and self._search_results:
                 first = self._search_results[0]
                 username = first.get("name") or first.get("username")
@@ -372,6 +376,11 @@ class BrowserScreen:
                         self._search_input.text = username
                         self._search_results = ArrayList()
                         return
+            clicked_search = self._search_input.rect.collidepoint(event.pos)
+            clicked_results = result_box.collidepoint(event.pos)
+            if not clicked_search and not clicked_results:
+                self._search_results = ArrayList()
+                self._last_search_text = self._search_input.text.strip()
 
             if self._btn_stats.contains(event.pos):
                 self.on_stats()
@@ -442,6 +451,11 @@ class BrowserScreen:
         max_scroll = max(0, len(self.games) * 56 - self._list_rect.height)
         self._scroll = min(self._scroll, max_scroll)
         self._search_input.tick(dt)
+        if self._search_input.focused:
+            self._refresh_search_results()
+        elif self._search_results:
+            self._search_results = ArrayList()
+            self._last_search_text = self._search_input.text.strip()
 
     def draw(self, surface: pygame.Surface) -> None:
         pygame.draw.rect(surface, COLORS["bg"], self.rect)
@@ -637,6 +651,42 @@ class StatsScreen:
             val = val_font.render(value, True, COLORS["text"])
             surface.blit(val, (rr.x + 16, rr.y + 44))
 
+        mp = pygame.mouse.get_pos()
+        self._btn_back.draw(surface, self._btn_back.contains(mp))
+
+
+class GameOverScreen:
+    """Simple shared game-over screen for all games."""
+
+    def __init__(self, rect: pygame.Rect, on_back: Callable[[], None]):
+        self.rect = rect
+        self.on_back = on_back
+        self.game_name = ""
+        self.reason = "You were defeated."
+        self._btn_back = Button(pygame.Rect(rect.centerx - 110, rect.centery + 70, 220, 46), "Back to Games")
+
+    def set_context(self, game_name: str, reason: str = "You were defeated.") -> None:
+        self.game_name = game_name or ""
+        self.reason = reason or "You were defeated."
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._btn_back.contains(event.pos):
+                self.on_back()
+        elif event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
+            self.on_back()
+
+    def update(self, dt: float) -> None:
+        pass
+
+    def draw(self, surface: pygame.Surface) -> None:
+        pygame.draw.rect(surface, COLORS["bg"], self.rect)
+        title = TITLE_FONT.render("GAME OVER", True, COLORS["error"])
+        surface.blit(title, title.get_rect(center=(self.rect.centerx, self.rect.centery - 80)))
+        subtitle = BODY_FONT.render(self.game_name or "Session Ended", True, COLORS["text"])
+        surface.blit(subtitle, subtitle.get_rect(center=(self.rect.centerx, self.rect.centery - 30)))
+        detail = SMALL_FONT.render(self.reason, True, COLORS["text_dim"])
+        surface.blit(detail, detail.get_rect(center=(self.rect.centerx, self.rect.centery - 2)))
         mp = pygame.mouse.get_pos()
         self._btn_back.draw(surface, self._btn_back.contains(mp))
 
@@ -1184,6 +1234,7 @@ class AppScreen(Enum):
     BROWSER = auto()
     STATS = auto()
     HISTORY = auto()
+    GAME_OVER = auto()
     GAME_STATS = auto()
     LEADERBOARD = auto()
     QUEUE = auto()
@@ -1202,6 +1253,7 @@ __all__ = (
     "GameInfo",
     "PlayerStats",
     "StatsScreen",
+    "GameOverScreen",
     "MatchHistoryScreen",
     "GameStatsScreen",
     "LeaderboardScreen",
