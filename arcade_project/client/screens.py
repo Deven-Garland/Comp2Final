@@ -278,7 +278,7 @@ class BrowserScreen:
         self._btn_stats = Button(pygame.Rect(rect.right - pad - 390, rect.y + 24, 120, 36), "View stats")
         self._btn_history = Button(pygame.Rect(rect.right - pad - 260, rect.y + 24, 120, 36), "History")
         self._btn_lb = Button(pygame.Rect(rect.right - pad - 130, rect.y + 24, 120, 36), "Leaderboard")
-        self._btn_player_search = Button(pygame.Rect(rect.x + pad, rect.y + 24, 150, 36), "Player Search")
+        self._btn_player_search = Button(pygame.Rect(rect.x + pad + 130, rect.bottom - 72, 150, 44), "Player Search")
         self._btn_play = Button(pygame.Rect(rect.right - pad - 160, rect.bottom - 72, 150, 44), "Find match")
         self._btn_out = Button(pygame.Rect(rect.x + pad, rect.bottom - 72, 120, 44), "Log out")
         self._btn_game_stats = Button(
