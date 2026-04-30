@@ -595,17 +595,30 @@ class ArcadeClient:
         else:
             self._ellie_game = None
 
-        if self._ellie_game is not None and hasattr(self._ellie_game, "level") and self._ellie_game.level:
-            try:
-                self._ellie_game.level.network.game_id = self._chat_channel
-            except Exception:
-                pass
+        self._sync_game_network_channel()
 
         self._go_to(AppScreen.PLAY)
+
+    def _sync_game_network_channel(self) -> None:
+        if not self._ellie_game:
+            return
+        if not self._chat_channel:
+            return
+        level = getattr(self._ellie_game, "level", None)
+        if not level:
+            return
+        network = getattr(level, "network", None)
+        if not network:
+            return
+        try:
+            network.game_id = self._chat_channel
+        except Exception:
+            pass
 
     def _sync_play_connections_from_game(self) -> None:
         if not self._play or not self._ellie_game:
             return
+        self._sync_game_network_channel()
         level = getattr(self._ellie_game, "level", None)
         if not level:
             return
@@ -697,6 +710,7 @@ class ArcadeClient:
             if self._ellie_game and self._current == AppScreen.PLAY:
                 self._ellie_game.chat_focused = self._play.chat_input_focused
                 try:
+                    self._sync_game_network_channel()
                     self._ellie_game.update(dt)
                     self._sync_play_connections_from_game()
                     if self._ellie_game.state == "done":
