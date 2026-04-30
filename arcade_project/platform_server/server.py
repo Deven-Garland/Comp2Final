@@ -42,6 +42,7 @@ DEFAULT_MAX_PLAYERS_PER_INSTANCE = int(os.getenv("PLATFORM_MAX_PLAYERS_PER_INSTA
 DEFAULT_GAME_HOST = os.getenv("PLATFORM_GAME_HOST", "127.0.0.1")
 GAME_SERVER_ENV = os.getenv("PLATFORM_GAME_SERVERS", "")
 RUNTIME_STATE_FILE = Path(__file__).with_name("runtime_state.json")
+RATINGS_STATE_FILE = Path(__file__).with_name("ratings_data.json")
 
 REQUEST_TYPE_KEYS = ("type", "action")
 RESERVED_REQUEST_KEYS = (*REQUEST_TYPE_KEYS, "request_id", "params")
@@ -91,6 +92,7 @@ class PlatformServer:
         for game_name in self.games.game_servers:
             game_names.append(game_name)
         self.ratings = Ratings(game_names)
+        self._ratings_loaded_from_file = False
         self.players_per_match = players_per_match
         self.max_players_per_instance = DEFAULT_MAX_PLAYERS_PER_INSTANCE
         self.next_game_id = 1
@@ -105,6 +107,7 @@ class PlatformServer:
 
         self.data_ingest = DataIngest(self.accounts, self.leaderboard, self.catalog)
         self.data_ingest.load_data()
+        self._ratings_loaded_from_file = self._load_ratings_state()
         self._load_runtime_state()
 
         # Build player search index from all loaded accounts
@@ -159,6 +162,7 @@ class PlatformServer:
                 row["score"] = match.score
                 row["duration"] = match.duration
                 row["ended_at"] = match.ended_at
+                row["game_name"] = getattr(match, "game_name", "global")
                 rows.append(
                     row
                 )
@@ -181,6 +185,7 @@ class PlatformServer:
                 json.dump(_to_builtin_json(payload), file, indent=2)
         except Exception as error:
             print(f"[platform] Could not save runtime state: {error}")
+        self._save_ratings_state()
 
     def _serialize_ratings(self):
         """Convert ratings to a plain dict: {game_name: [score, score, ...]}"""
@@ -192,6 +197,35 @@ class PlatformServer:
                 scores.append(s)
             data[game_name] = scores
         return data
+
+    def _save_ratings_state(self):
+        """Persist ratings independently from runtime occupancy/history state."""
+        payload = self._serialize_ratings()
+        try:
+            with open(RATINGS_STATE_FILE, "w", encoding="utf-8") as file:
+                json.dump(_to_builtin_json(payload), file, indent=2)
+        except Exception as error:
+            print(f"[platform] Could not save ratings state: {error}")
+
+    def _load_ratings_state(self):
+        """Load ratings from dedicated ratings_data.json if present."""
+        if not RATINGS_STATE_FILE.exists():
+            return False
+        try:
+            with open(RATINGS_STATE_FILE, "r", encoding="utf-8") as file:
+                payload = json.load(file)
+        except Exception as error:
+            print(f"[platform] Could not load ratings state: {error}")
+            return False
+        loaded_any = False
+        for game_name, scores in payload.items():
+            for stars in scores:
+                try:
+                    self.ratings.rate(game_name, int(stars))
+                    loaded_any = True
+                except Exception:
+                    pass
+        return loaded_any
 
     def _load_runtime_state(self):
         if not RUNTIME_STATE_FILE.exists():
@@ -246,15 +280,17 @@ class PlatformServer:
                     score=match.get("score", 0),
                     duration=match.get("duration", 0),
                     ended_at=match.get("ended_at"),
+                    game_name=match.get("game_name", "global"),
                 )
 
-        # Restore ratings — replay each saved score so averages are correct
-        for game_name, scores in payload.get("ratings", {}).items():
-            for stars in scores:
-                try:
-                    self.ratings.rate(game_name, int(stars))
-                except Exception:
-                    pass
+        # Restore ratings from runtime_state only if dedicated ratings file was not loaded.
+        if not self._ratings_loaded_from_file:
+            for game_name, scores in payload.get("ratings", {}).items():
+                for stars in scores:
+                    try:
+                        self.ratings.rate(game_name, int(stars))
+                    except Exception:
+                        pass
 
     def register(self, username, password):
         result = self.accounts.register(username, password)
@@ -413,7 +449,7 @@ class PlatformServer:
         return payload
 
     def end_game(self, game_id, players, winner, score, game="global"):
-        self.history.add_match(game_id, players, winner, score=score, duration=0)
+        self.history.add_match(game_id, players, winner, score=score, duration=0, game_name=game)
         self.leaderboard.add_score(winner, score)
         self._set_board_score(f"{game}:score", winner, score)
         self._set_board_score("global:score", winner, score)
@@ -582,8 +618,37 @@ class PlatformServer:
             return ArrayList()
         return self.game_leaderboards[board_name].range_query(low, high)
 
-    def player_history(self, username, sort_by="date", descending=True):
-        return self.history.get_player_history(username, sort_by=sort_by, descending=descending)
+    def player_history(
+        self,
+        username,
+        sort_by="date",
+        descending=True,
+        game=None,
+        start_date=None,
+        end_date=None,
+        outcome="all",
+    ):
+        matches = self.history.get_player_history(
+            username,
+            sort_by=sort_by,
+            descending=descending,
+            game=game,
+            start_date=start_date,
+            end_date=end_date,
+            outcome=outcome,
+        )
+        rows = ArrayList()
+        for match in matches:
+            row = HashTable()
+            row["game_id"] = match.game_id
+            row["game_name"] = getattr(match, "game_name", "global")
+            row["winner"] = match.winner
+            row["score"] = match.score
+            row["duration"] = match.duration
+            row["ended_at"] = match.ended_at
+            row["outcome"] = "win" if str(match.winner) == str(username) else "loss"
+            rows.append(row)
+        return tuple(rows)
 
     def search_players(self, prefix):
         """Return list of player profiles whose name starts with prefix."""

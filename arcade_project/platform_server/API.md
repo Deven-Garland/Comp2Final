@@ -61,7 +61,7 @@ This is the network API your clients use to talk to the platform.
 
 ### Profile / Stats / Search
 
-- `player_history(username, sort_by="date", descending=true)` -> player match history sorted by `date`, `duration`, or `score`
+- `player_history(username, sort_by="date", descending=true, game=None, start_date=None, end_date=None, outcome="all")` -> player match history rows; supports filters by game, date range (unix timestamps), and outcome (`all`/`win`/`loss`)
 - `search_players(prefix)` -> matching profile list
 - `get_player_profile(username)` -> profile object or `null`
 - `set_favorite(username, game_id)` -> bool-like result

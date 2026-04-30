@@ -162,12 +162,25 @@ class ServerConnection:
             return resp.get("data") or 0
         return 0
 
-    def get_player_history_sorted(self, username, sort_by="date", descending=True):
-        payload = self._payload((
-            ("username", username),
-            ("sort_by", sort_by),
-            ("descending", bool(descending)),
-        ))
+    def get_player_history_sorted(
+        self,
+        username,
+        sort_by="date",
+        descending=True,
+        game=None,
+        start_date=None,
+        end_date=None,
+        outcome="all",
+    ):
+        payload = self._payload((("username", username), ("sort_by", sort_by), ("descending", bool(descending))))
+        if game is not None:
+            payload["game"] = game
+        if start_date is not None:
+            payload["start_date"] = start_date
+        if end_date is not None:
+            payload["end_date"] = end_date
+        if outcome is not None:
+            payload["outcome"] = outcome
         resp = self._request("player_history", payload)
         if resp.get("status") == "ok":
             return resp.get("data") or ArrayList()

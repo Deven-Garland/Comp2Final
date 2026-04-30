@@ -10,6 +10,7 @@ drawing and input.
 from __future__ import annotations
 
 import math
+import time
 from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -224,6 +225,7 @@ class BrowserScreen:
         on_play: Callable[[str], None],
         on_logout: Callable[[], None],
         on_stats: Callable[[], None],
+        on_history: Callable[[], None],
         on_leaderboard: Callable[[], None],
         on_star: Optional[Callable[[str], None]] = None,
         on_rate: Optional[Callable[[str, int], bool]] = None,
@@ -236,6 +238,7 @@ class BrowserScreen:
         self.on_play = on_play
         self.on_logout = on_logout
         self.on_stats = on_stats
+        self.on_history = on_history
         self.on_leaderboard = on_leaderboard
         self.on_star = on_star
         self.on_rate = on_rate
@@ -269,7 +272,8 @@ class BrowserScreen:
             "Search players...",
         )
         self._list_rect = pygame.Rect(rect.x + pad, rect.y + 106, rect.width - 2 * pad, rect.height - 206)
-        self._btn_stats = Button(pygame.Rect(rect.right - pad - 260, rect.y + 24, 120, 36), "View stats")
+        self._btn_stats = Button(pygame.Rect(rect.right - pad - 390, rect.y + 24, 120, 36), "View stats")
+        self._btn_history = Button(pygame.Rect(rect.right - pad - 260, rect.y + 24, 120, 36), "History")
         self._btn_lb = Button(pygame.Rect(rect.right - pad - 130, rect.y + 24, 120, 36), "Leaderboard")
         self._btn_play = Button(pygame.Rect(rect.right - pad - 160, rect.bottom - 72, 150, 44), "Find match")
         self._btn_out = Button(pygame.Rect(rect.x + pad, rect.bottom - 72, 120, 44), "Log out")
@@ -371,6 +375,8 @@ class BrowserScreen:
 
             if self._btn_stats.contains(event.pos):
                 self.on_stats()
+            elif self._btn_history.contains(event.pos):
+                self.on_history()
             elif self._btn_lb.contains(event.pos):
                 self.on_leaderboard()
             elif self._btn_play.contains(event.pos) and self._selected is not None:
@@ -524,6 +530,7 @@ class BrowserScreen:
 
         mp = pygame.mouse.get_pos()
         self._btn_stats.draw(surface, self._btn_stats.contains(mp))
+        self._btn_history.draw(surface, self._btn_history.contains(mp))
         self._btn_lb.draw(surface, self._btn_lb.contains(mp))
         self._btn_play.enabled = self._selected is not None
         self._btn_play.draw(surface, self._btn_play.contains(mp))
@@ -723,6 +730,135 @@ class GameStatsScreen:
 
         mp = pygame.mouse.get_pos()
         self._btn_back.draw(surface, self._btn_back.contains(mp))
+
+
+# --- Match history ---------------------------------------------------------
+
+
+class MatchHistoryScreen:
+    def __init__(
+        self,
+        rect: pygame.Rect,
+        on_back: Callable[[], None],
+        on_refresh: Callable[[str, str, Optional[float], Optional[float]], List[dict]],
+        games: Optional[List[GameInfo]] = None,
+    ):
+        self.rect = rect
+        self.on_back = on_back
+        self.on_refresh = on_refresh
+        self._rows = ArrayList()
+        self._status = ""
+        self._games = ArrayList()
+        self._games.append(("all", "All Games"))
+        for game in games or ():
+            self._games.append((game.id, game.name))
+        self._outcomes = ("all", "win", "loss")
+        self._ranges = (
+            ("all", None),
+            ("7d", 7),
+            ("30d", 30),
+            ("90d", 90),
+        )
+        self._game_idx = 0
+        self._outcome_idx = 0
+        self._range_idx = 0
+        pad = 24
+        self._btn_back = Button(pygame.Rect(rect.x + pad, rect.y + pad, 120, 40), "Back")
+        self._btn_game = Button(pygame.Rect(rect.x + pad, rect.y + 84, 240, 36), "Game: all")
+        self._btn_outcome = Button(pygame.Rect(rect.x + pad + 252, rect.y + 84, 150, 36), "Outcome: all")
+        self._btn_range = Button(pygame.Rect(rect.x + pad + 414, rect.y + 84, 160, 36), "Range: all")
+        self._btn_refresh = Button(pygame.Rect(rect.right - pad - 130, rect.y + 84, 130, 36), "Refresh")
+
+    def _current_game_id(self) -> str:
+        return self._games[self._game_idx][0]
+
+    def _current_outcome(self) -> str:
+        return self._outcomes[self._outcome_idx]
+
+    def _current_range_days(self):
+        return self._ranges[self._range_idx][1]
+
+    def refresh(self) -> None:
+        try:
+            now = time.time()
+            days = self._current_range_days()
+            start_ts = (now - float(days) * 86400.0) if days is not None else None
+            rows = self.on_refresh(self._current_game_id(), self._current_outcome(), start_ts, None)
+            self._rows = ArrayList()
+            for row in rows:
+                self._rows.append(row)
+            self._status = f"Loaded {len(self._rows)} matches"
+        except Exception as error:
+            self._rows = ArrayList()
+            self._status = f"Load failed: {error}"
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._btn_back.contains(event.pos):
+                self.on_back()
+            elif self._btn_game.contains(event.pos):
+                self._game_idx = (self._game_idx + 1) % len(self._games)
+                self.refresh()
+            elif self._btn_outcome.contains(event.pos):
+                self._outcome_idx = (self._outcome_idx + 1) % len(self._outcomes)
+                self.refresh()
+            elif self._btn_range.contains(event.pos):
+                self._range_idx = (self._range_idx + 1) % len(self._ranges)
+                self.refresh()
+            elif self._btn_refresh.contains(event.pos):
+                self.refresh()
+
+    def update(self, dt: float) -> None:
+        pass
+
+    def draw(self, surface: pygame.Surface) -> None:
+        pygame.draw.rect(surface, COLORS["bg"], self.rect)
+        title = TITLE_FONT.render("Match History", True, COLORS["accent"])
+        surface.blit(title, (self.rect.centerx - title.get_width() // 2, self.rect.y + 24))
+        sub = SMALL_FONT.render("Sorted by date (newest first). Filter by game, outcome, and date range.", True, COLORS["text_dim"])
+        surface.blit(sub, sub.get_rect(center=(self.rect.centerx, self.rect.y + 70)))
+
+        game_name = self._games[self._game_idx][1]
+        self._btn_game.label = f"Game: {game_name}"
+        self._btn_outcome.label = f"Outcome: {self._current_outcome()}"
+        self._btn_range.label = f"Range: {self._ranges[self._range_idx][0]}"
+
+        mp = pygame.mouse.get_pos()
+        self._btn_back.draw(surface, self._btn_back.contains(mp))
+        self._btn_game.draw(surface, self._btn_game.contains(mp))
+        self._btn_outcome.draw(surface, self._btn_outcome.contains(mp))
+        self._btn_range.draw(surface, self._btn_range.contains(mp))
+        self._btn_refresh.draw(surface, self._btn_refresh.contains(mp))
+
+        status = SMALL_FONT.render(self._status, True, COLORS["text_dim"])
+        surface.blit(status, (self.rect.x + 24, self.rect.y + 128))
+
+        box = pygame.Rect(self.rect.x + 24, self.rect.y + 156, self.rect.width - 48, self.rect.height - 180)
+        pygame.draw.rect(surface, COLORS["panel"], box, border_radius=10)
+        pygame.draw.rect(surface, COLORS["border"], box, 1, border_radius=10)
+
+        headers = ("Date", "Game", "Outcome", "Score", "Duration")
+        hx = (box.x + 14, box.x + 188, box.x + 388, box.x + 522, box.x + 618)
+        for i, head in enumerate(headers):
+            surface.blit(SMALL_FONT.render(head, True, COLORS["text_dim"]), (hx[i], box.y + 12))
+
+        y = box.y + 38
+        max_rows = min(18, len(self._rows))
+        for i in range(max_rows):
+            row = self._rows[i]
+            ended_at = float(row.get("ended_at", 0.0))
+            date_str = time.strftime("%Y-%m-%d %H:%M", time.localtime(ended_at)) if ended_at > 0 else "-"
+            game_str = str(row.get("game_name", row.get("game_id", "global")))
+            outcome = str(row.get("outcome", ""))
+            score = str(row.get("score", 0))
+            duration = str(row.get("duration", 0))
+            line_color = COLORS["success"] if outcome == "win" else COLORS["text"]
+            surface.blit(SMALL_FONT.render(date_str, True, COLORS["text"]), (hx[0], y))
+            surface.blit(SMALL_FONT.render(game_str, True, COLORS["text"]), (hx[1], y))
+            surface.blit(SMALL_FONT.render(outcome, True, line_color), (hx[2], y))
+            surface.blit(SMALL_FONT.render(score, True, COLORS["text"]), (hx[3], y))
+            surface.blit(SMALL_FONT.render(duration, True, COLORS["text"]), (hx[4], y))
+            y += 24
 
 
 # --- Leaderboard -----------------------------------------------------------
@@ -1047,6 +1183,7 @@ class AppScreen(Enum):
     LOGIN = auto()
     BROWSER = auto()
     STATS = auto()
+    HISTORY = auto()
     GAME_STATS = auto()
     LEADERBOARD = auto()
     QUEUE = auto()
@@ -1065,6 +1202,7 @@ __all__ = (
     "GameInfo",
     "PlayerStats",
     "StatsScreen",
+    "MatchHistoryScreen",
     "GameStatsScreen",
     "LeaderboardScreen",
     "QueueScreen",

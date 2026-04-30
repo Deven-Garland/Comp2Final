@@ -71,7 +71,7 @@ class Level:
                 x = col_index * TILESIZE
                 y = row_index * TILESIZE
                 if col == 'x':
-                    Tile((x, y), [self.visible_sprites, self.obstacle_sprites])
+                    Tile((x, y), [self.visible_sprites, self.obstacle_sprites], 'boundary')
                 if col == 'p':
                     # Create local player with chosen character class
                     self.player = self.character_class(

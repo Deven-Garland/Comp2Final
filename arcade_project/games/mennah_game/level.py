@@ -163,6 +163,21 @@ class Level:
         # Falls back to empty dict (tiles render as blank) if not found.
         gid_map = self._load_gid_map('graphics/tilemap/Map.tmx')
         print(f"[Map] Loaded {len(gid_map)} GID surfaces from Map.tmx")
+        fallback_grass = None
+        fallback_object = None
+        if not gid_map:
+            # Mennah's project currently ships CSV layers but no TMX metadata.
+            # Use these local textures so map/tile layers still render visibly.
+            try:
+                fallback_grass = pygame.image.load('graphics/tilemap/ground.png').convert_alpha()
+                fallback_grass = pygame.transform.scale(fallback_grass, (TILESIZE, TILESIZE))
+            except Exception:
+                fallback_grass = None
+            try:
+                fallback_object = pygame.image.load('graphics/test/rock.png').convert_alpha()
+                fallback_object = pygame.transform.scale(fallback_object, (TILESIZE, TILESIZE))
+            except Exception:
+                fallback_object = fallback_grass
 
         # --- Layer definitions ---
         # (csv_path, sprite_type, groups)
@@ -187,6 +202,10 @@ class Level:
                     x = col * TILESIZE
                     y = row * TILESIZE
                     surf = gid_map.get(tile_id)
+                    if surf is None and sprite_type == 'grass':
+                        surf = fallback_grass
+                    elif surf is None and sprite_type == 'object':
+                        surf = fallback_object
                     if surf is not None:
                         Tile((x, y), groups, sprite_type, surf)
                     else:

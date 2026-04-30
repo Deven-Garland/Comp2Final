@@ -23,6 +23,7 @@ from client.screens import (
     GameStatsScreen,
     LeaderboardScreen,
     LoginScreen,
+    MatchHistoryScreen,
     PlayerStats,
     PlaySessionScreen,
     QueueScreen,
@@ -94,6 +95,7 @@ class ArcadeClient:
             on_play=self._handle_play,
             on_logout=self._handle_logout,
             on_stats=self._handle_stats,
+            on_history=self._handle_history,
             on_leaderboard=self._handle_leaderboard,
             on_star=self._handle_star,
             on_rate=self._handle_rate,
@@ -103,6 +105,12 @@ class ArcadeClient:
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
+        self._history = MatchHistoryScreen(
+            full,
+            on_back=self._handle_back_to_browser,
+            on_refresh=self._load_history_data,
+            games=GAME_LIST,
+        )
         self._game_stats = GameStatsScreen(full, on_back=self._handle_back_to_browser)
         self._leaderboard = LeaderboardScreen(
             full,
@@ -132,6 +140,8 @@ class ArcadeClient:
             return self._browser
         if self._current == AppScreen.STATS:
             return self._stats
+        if self._current == AppScreen.HISTORY:
+            return self._history
         if self._current == AppScreen.GAME_STATS:
             return self._game_stats
         if self._current == AppScreen.LEADERBOARD:
@@ -299,6 +309,26 @@ class ArcadeClient:
 
         self._game_stats.set_stats(game_name, stats)
         self._go_to(AppScreen.GAME_STATS)
+
+    def _load_history_data(self, game: str, outcome: str, start_date, end_date):
+        rows = ArrayList()
+        game_filter = None if game in (None, "", "all") else game
+        history = self._conn.get_player_history_sorted(
+            self._username,
+            sort_by="date",
+            descending=True,
+            game=game_filter,
+            start_date=start_date,
+            end_date=end_date,
+            outcome=outcome or "all",
+        )
+        for row in history:
+            rows.append(row)
+        return rows
+
+    def _handle_history(self) -> None:
+        self._history.refresh()
+        self._go_to(AppScreen.HISTORY)
 
     def _handle_back_to_browser(self) -> None:
         if self._leaderboard_from_play and self._session_id:
