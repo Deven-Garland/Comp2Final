@@ -216,6 +216,7 @@ class GameInfo:
     id: str
     name: str
     description: str = ""
+    author: str = ""
 
 
 class BrowserScreen:
@@ -252,11 +253,11 @@ class BrowserScreen:
         self.user_ratings = HashTable()
         self.games = ArrayList()
         default_games = (
-            GameInfo("deven",    "Where the Fog Remembers", "Horror/adventure · explore & chat"),
-            GameInfo("ellie",    "Eli's Legacy",            "Fantasy/adventure · compete for high score"),
-            GameInfo("kimberly", "Fate of the Fists",       "Adventure/combat · fight to win"),
-            GameInfo("mennah",   "Doom in Delta",           "Historical RPG · complete secret missions"),
-            GameInfo("vraj",     "Echoes of the Iron Realm","Top-down action RPG · real-time multiplayer"),
+            GameInfo("deven",    "Where the Fog Remembers", "Horror/adventure · explore & chat",           "Deven Garland"),
+            GameInfo("ellie",    "Eli's Legacy",            "Fantasy/adventure · compete for high score",  "Ellie Lutz"),
+            GameInfo("kimberly", "Fate of the Fists",       "Adventure/combat · fight to win",             "Kimberly"),
+            GameInfo("mennah",   "Doom in Delta",           "Historical RPG · complete secret missions",   "Mennah Dewidar"),
+            GameInfo("vraj",     "Echoes of the Iron Realm","Top-down action RPG · real-time multiplayer", "Vraj"),
         )
         for game in games or default_games:
             self.games.append(game)
@@ -280,7 +281,6 @@ class BrowserScreen:
         self._btn_player_search = Button(pygame.Rect(rect.x + pad, rect.y + 24, 150, 36), "Player Search")
         self._btn_play = Button(pygame.Rect(rect.right - pad - 160, rect.bottom - 72, 150, 44), "Find match")
         self._btn_out = Button(pygame.Rect(rect.x + pad, rect.bottom - 72, 120, 44), "Log out")
-        # "My Stats" button shown when a game row is selected, bottom-center
         self._btn_game_stats = Button(
             pygame.Rect(rect.centerx - 75, rect.bottom - 72, 150, 44), "My Stats"
         )
@@ -412,7 +412,7 @@ class BrowserScreen:
                 gid = self.games[self._selected].id
                 self.on_game_stats(gid)
             elif self._list_rect.collidepoint(event.pos):
-                row_h = 56
+                row_h = 72  # taller rows to fit 3 lines
                 y = event.pos[1] - self._list_rect.y + self._scroll
                 idx = y // row_h
                 if 0 <= idx < len(self.games):
@@ -452,14 +452,15 @@ class BrowserScreen:
             self._scroll = max(0, self._scroll - event.y * 24)
         elif event.type == pygame.MOUSEMOTION:
             if self._list_rect.collidepoint(event.pos):
-                row_h = 56
+                row_h = 72
                 y = event.pos[1] - self._list_rect.y + self._scroll
                 self._hover_row = y // row_h if 0 <= y // row_h < len(self.games) else -1
             else:
                 self._hover_row = -1
 
     def update(self, dt: float) -> None:
-        max_scroll = max(0, len(self.games) * 56 - self._list_rect.height)
+        row_h = 72
+        max_scroll = max(0, len(self.games) * row_h - self._list_rect.height)
         self._scroll = min(self._scroll, max_scroll)
         self._search_input.tick(dt)
         if self._search_input.focused:
@@ -478,7 +479,7 @@ class BrowserScreen:
         pygame.draw.rect(surface, COLORS["panel"], self._list_rect, border_radius=10)
         pygame.draw.rect(surface, COLORS["border"], self._list_rect, 1, border_radius=10)
 
-        row_h = 56
+        row_h = 72
         clip = surface.get_clip()
         surface.set_clip(self._list_rect)
         for i, g in enumerate(self.games):
@@ -491,10 +492,14 @@ class BrowserScreen:
             elif i == self._hover_row:
                 pygame.draw.rect(surface, COLORS["row_hover"], rr, border_radius=8)
 
+            # Three lines: title, description, author
             name = BODY_FONT.render(g.name, True, COLORS["text"])
-            surface.blit(name, (rr.x + 12, rr.y + 8))
+            surface.blit(name, (rr.x + 12, rr.y + 6))
             desc = SMALL_FONT.render(g.description[:80], True, COLORS["text_dim"])
-            surface.blit(desc, (rr.x + 12, rr.y + 30))
+            surface.blit(desc, (rr.x + 12, rr.y + 28))
+            if g.author:
+                auth = SMALL_FONT.render(f"by {g.author}", True, COLORS["accent_dim"])
+                surface.blit(auth, (rr.x + 12, rr.y + 46))
 
             rating = float(self.game_ratings[g.id]) if g.id in self.game_ratings else 0.0
             rating_rect = self._rating_rect_for_row(rr)
@@ -548,9 +553,9 @@ class BrowserScreen:
         self._btn_play.draw(surface, self._btn_play.contains(mp))
         self._btn_out.draw(surface, self._btn_out.contains(mp))
 
-        # "My Stats" button only shown when a game is selected
         if self._selected is not None and self.on_game_stats:
             self._btn_game_stats.draw(surface, self._btn_game_stats.contains(mp))
+
 
 class PlayerSearchScreen:
     def __init__(
@@ -799,7 +804,6 @@ class GameStatsScreen:
         self.on_back = on_back
         self._game_name = ""
         self._stats: HashTable = HashTable()
-        # ArrayList of (stat_key, display_label) pairs
         self._stat_labels = ArrayList()
         for pair in (
             ("sessions",    "Sessions Played"),
@@ -857,7 +861,6 @@ class GameStatsScreen:
             rank = entry.get("rank") if entry and hasattr(entry, "get") else None
             value = entry.get("value") if entry and hasattr(entry, "get") else None
 
-            # Show value if we have it, otherwise show rank
             if value is not None:
                 main_text = str(value)
                 sub_text = f"Rank #{rank}" if rank is not None else ""
