@@ -16,6 +16,22 @@ class SpriteLoader:
     """Handles sprite loading for both characters and enemies with flexible organization."""
     
     @staticmethod
+    def _case_insensitive_match(parent_dir, target_name):
+        if not os.path.isdir(parent_dir):
+            return None
+        direct = os.path.join(parent_dir, target_name)
+        if os.path.exists(direct):
+            return direct
+        target_lower = target_name.lower()
+        try:
+            for entry in os.listdir(parent_dir):
+                if entry.lower() == target_lower:
+                    return os.path.join(parent_dir, entry)
+        except Exception:
+            return None
+        return None
+    
+    @staticmethod
     def load_character_sprites(character_name, base_path="../../graphics/characters"):
         """
         Load sprites for a character.
@@ -70,7 +86,9 @@ class SpriteLoader:
         statuses = ['up', 'down', 'left', 'right', 'up_idle', 'down_idle', 'left_idle', 'right_idle']
         
         # Check for animated sprites (subdirectory structure)
-        character_dir = os.path.join(base_path, name_lower)
+        character_dir = SpriteLoader._case_insensitive_match(base_path, name_lower)
+        if character_dir is None:
+            character_dir = os.path.join(base_path, name_lower)
         
         print(f"  Checking for animated sprites at: {character_dir}")
         print(f"  Directory exists: {os.path.exists(character_dir)}")
@@ -86,7 +104,9 @@ class SpriteLoader:
             
         else:
             # Static sprite - single image file
-            static_path = os.path.join(base_path, f"{name_lower}.png")
+            static_path = SpriteLoader._case_insensitive_match(base_path, f"{name_lower}.png")
+            if static_path is None:
+                static_path = os.path.join(base_path, f"{name_lower}.png")
             print(f"  Checking for static sprite at: {static_path}")
             print(f"  File exists: {os.path.exists(static_path)}")
             

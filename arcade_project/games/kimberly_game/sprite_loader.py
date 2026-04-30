@@ -16,6 +16,22 @@ class SpriteLoader:
     """Handles sprite loading for both characters and NPCs with flexible organization."""
     
     @staticmethod
+    def _case_insensitive_match(parent_dir, target_name):
+        if not os.path.isdir(parent_dir):
+            return None
+        direct = os.path.join(parent_dir, target_name)
+        if os.path.exists(direct):
+            return direct
+        target_lower = target_name.lower()
+        try:
+            for entry in os.listdir(parent_dir):
+                if entry.lower() == target_lower:
+                    return os.path.join(parent_dir, entry)
+        except Exception:
+            return None
+        return None
+    
+    @staticmethod
     def load_character_sprites(character_name, base_path="../../graphics/characters"):
         """
         Load sprites for a character.
@@ -64,6 +80,13 @@ class SpriteLoader:
         name_lower = name.lower()
         module_dir = os.path.dirname(os.path.abspath(__file__))
         base_path = base_path if os.path.isabs(base_path) else os.path.normpath(os.path.join(module_dir, base_path))
+        asset_alias = {
+            "technical_fighter": "wizard",
+            "mystic_warrior": "cleric",
+            "balanced_prodigy": "thief",
+            "heavy_enforcer": "hobbit",
+        }
+        name_lower = asset_alias.get(name_lower, name_lower)
         name_slug = name_lower.replace(" ", "_")
         animations = {}
         
@@ -71,12 +94,20 @@ class SpriteLoader:
         statuses = ['up', 'down', 'left', 'right', 'up_idle', 'down_idle', 'left_idle', 'right_idle']
         
         # Check for animated sprites (subdirectory structure)
-        character_dir = os.path.join(base_path, name_slug)
-        static_path = os.path.join(base_path, f"{name_slug}.png")
+        character_dir = SpriteLoader._case_insensitive_match(base_path, name_slug)
+        if character_dir is None:
+            character_dir = os.path.join(base_path, name_slug)
+        static_path = SpriteLoader._case_insensitive_match(base_path, f"{name_slug}.png")
+        if static_path is None:
+            static_path = os.path.join(base_path, f"{name_slug}.png")
         # Kimberly assets also exist under graphics/graphics/* in this repo.
         fallback_base = os.path.join(os.path.dirname(base_path), "graphics", os.path.basename(base_path))
-        fallback_dir = os.path.join(fallback_base, name_slug)
-        fallback_static = os.path.join(fallback_base, f"{name_slug}.png")
+        fallback_dir = SpriteLoader._case_insensitive_match(fallback_base, name_slug)
+        if fallback_dir is None:
+            fallback_dir = os.path.join(fallback_base, name_slug)
+        fallback_static = SpriteLoader._case_insensitive_match(fallback_base, f"{name_slug}.png")
+        if fallback_static is None:
+            fallback_static = os.path.join(fallback_base, f"{name_slug}.png")
         
         print(f"  Checking for animated sprites at: {character_dir}")
         print(f"  Directory exists: {os.path.exists(character_dir)}")
