@@ -151,6 +151,7 @@ class SpriteLoader:
         
         try:
             static_image = pygame.image.load(image_path).convert_alpha()
+            static_image = pygame.transform.scale(static_image, (64, 64))  # scale to match tile size
             
             # Use the same image for all statuses
             for status in statuses:
