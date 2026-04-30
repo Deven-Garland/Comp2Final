@@ -2,6 +2,7 @@
 character.py - Character classes with inventory AND networking support
 """
 
+import os
 import pygame
 from settings import *
 from support import import_folder
@@ -68,7 +69,8 @@ class Character(pygame.sprite.Sprite):
 
     def import_player_assets(self, animate=True):
         from sprite_loader import SpriteLoader
-        self.animations = SpriteLoader.load_character_sprites(self.character_name)
+        characters_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "graphics", "characters")
+        self.animations = SpriteLoader.load_character_sprites(self.character_name, characters_root)
         required = ["up", "down", "left", "right"]
         for direction in required:
             if direction not in self.animations:

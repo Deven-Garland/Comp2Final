@@ -6,6 +6,7 @@ Integrated version combining:
 - project-01's Player class (networking, multiplayer)
 """
 
+import os
 import pygame
 from settings import *
 from support import import_folder
@@ -65,12 +66,13 @@ class Character(pygame.sprite.Sprite):
     def import_player_assets(self, animate=True):
         """Load character animations using unified sprite system"""
         from sprite_loader import SpriteLoader
+        characters_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "graphics", "characters")
         
         # Use the unified sprite loader
-        self.animations = SpriteLoader.load_character_sprites(self.character_name)
+        self.animations = SpriteLoader.load_character_sprites(self.character_name, characters_root)
         
         # Debug: Print sprite loading info
-        sprite_info = SpriteLoader.get_sprite_info(self.character_name, "../../graphics/characters")
+        sprite_info = SpriteLoader.get_sprite_info(self.character_name, characters_root)
         print(f"Loaded {sprite_info['type']} sprites for {self.character_name}: {sprite_info}")
         
         # Ensure we have all required animations, add idle versions
