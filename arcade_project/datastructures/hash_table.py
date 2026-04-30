@@ -225,6 +225,15 @@ class HashTable:
         """
         return self.contains(key)
 
+    def clear(self):
+        """
+        Remove all key/value pairs while keeping current capacity.
+        """
+        self.table_buckets = ArrayList(self.table_capacity)
+        for _ in range(self.table_capacity):
+            self.table_buckets.append(LinkedList())
+        self.table_size = 0
+
     def __iter__(self):
         """
         Yield each key in the table one by one, used in for loops.
