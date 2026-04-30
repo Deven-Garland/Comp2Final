@@ -227,6 +227,7 @@ class BrowserScreen:
         on_stats: Callable[[], None],
         on_history: Callable[[], None],
         on_leaderboard: Callable[[], None],
+        on_player_search: Optional[Callable[[], None]] = None,
         on_star: Optional[Callable[[str], None]] = None,
         on_rate: Optional[Callable[[str, int], bool]] = None,
         on_search_players: Optional[Callable[[str], List[dict]]] = None,
@@ -240,6 +241,7 @@ class BrowserScreen:
         self.on_stats = on_stats
         self.on_history = on_history
         self.on_leaderboard = on_leaderboard
+        self.on_player_search = on_player_search
         self.on_star = on_star
         self.on_rate = on_rate
         self.on_search_players = on_search_players
@@ -275,6 +277,7 @@ class BrowserScreen:
         self._btn_stats = Button(pygame.Rect(rect.right - pad - 390, rect.y + 24, 120, 36), "View stats")
         self._btn_history = Button(pygame.Rect(rect.right - pad - 260, rect.y + 24, 120, 36), "History")
         self._btn_lb = Button(pygame.Rect(rect.right - pad - 130, rect.y + 24, 120, 36), "Leaderboard")
+        self._btn_player_search = Button(pygame.Rect(rect.x + pad, rect.y + 24, 150, 36), "Player Search")
         self._btn_play = Button(pygame.Rect(rect.right - pad - 160, rect.bottom - 72, 150, 44), "Find match")
         self._btn_out = Button(pygame.Rect(rect.x + pad, rect.bottom - 72, 120, 44), "Log out")
         # "My Stats" button shown when a game row is selected, bottom-center
@@ -394,6 +397,8 @@ class BrowserScreen:
                 self.on_history()
             elif self._btn_lb.contains(event.pos):
                 self.on_leaderboard()
+            elif self._btn_player_search.contains(event.pos) and self.on_player_search:
+                self.on_player_search()
             elif self._btn_play.contains(event.pos) and self._selected is not None:
                 gid = self.games[self._selected].id
                 self.on_play(gid)
@@ -469,20 +474,6 @@ class BrowserScreen:
         surface.blit(t, (self.rect.x + 24, self.rect.y + 24))
         sub = SMALL_FONT.render("Select a title, then find a match. Star + number is average rating. Circle toggles favorite.", True, COLORS["text_dim"])
         surface.blit(sub, (self.rect.x + 24, self.rect.y + 72))
-        self._search_input.draw(surface)
-
-        result_box = self._search_results_rect()
-        if self._search_results and self._search_input.text.strip():
-            pygame.draw.rect(surface, COLORS["panel"], result_box, border_radius=6)
-            pygame.draw.rect(surface, COLORS["border"], result_box, 1, border_radius=6)
-            for i, row in enumerate(self._search_results):
-                y = result_box.y + i * 26
-                rr = pygame.Rect(result_box.x + 2, y + 2, result_box.width - 4, 22)
-                if rr.collidepoint(pygame.mouse.get_pos()):
-                    pygame.draw.rect(surface, COLORS["row_hover"], rr, border_radius=4)
-                label = row.get("name") or row.get("username") or "unknown"
-                txt = SMALL_FONT.render(str(label), True, COLORS["text"])
-                surface.blit(txt, (rr.x + 8, rr.y + 3))
 
         pygame.draw.rect(surface, COLORS["panel"], self._list_rect, border_radius=10)
         pygame.draw.rect(surface, COLORS["border"], self._list_rect, 1, border_radius=10)
@@ -549,6 +540,7 @@ class BrowserScreen:
         surface.set_clip(clip)
 
         mp = pygame.mouse.get_pos()
+        self._btn_player_search.draw(surface, self._btn_player_search.contains(mp))
         self._btn_stats.draw(surface, self._btn_stats.contains(mp))
         self._btn_history.draw(surface, self._btn_history.contains(mp))
         self._btn_lb.draw(surface, self._btn_lb.contains(mp))
@@ -560,19 +552,118 @@ class BrowserScreen:
         if self._selected is not None and self.on_game_stats:
             self._btn_game_stats.draw(surface, self._btn_game_stats.contains(mp))
 
-        if self._selected_profile:
-            box = self._selected_profile_rect()
-            pygame.draw.rect(surface, COLORS["panel"], box, border_radius=8)
-            pygame.draw.rect(surface, COLORS["border"], box, 1, border_radius=8)
-            name = self._selected_profile.get("name", "Player")
-            surface.blit(BODY_FONT.render(str(name), True, COLORS["accent"]), (box.x + 10, box.y + 8))
+class PlayerSearchScreen:
+    def __init__(
+        self,
+        rect: pygame.Rect,
+        on_back: Callable[[], None],
+        on_search_players: Callable[[str], List[dict]],
+        on_select_player: Callable[[str], Optional[dict]],
+        games: Optional[List[GameInfo]] = None,
+    ):
+        self.rect = rect
+        self.on_back = on_back
+        self.on_search_players = on_search_players
+        self.on_select_player = on_select_player
+        self._game_names = HashTable()
+        self._game_names[""] = "None"
+        self._game_names["none"] = "None"
+        self._game_names["global"] = "Global"
+        for game in games or ():
+            self._game_names[str(game.id)] = str(game.name)
+        pad = 24
+        self._btn_back = Button(pygame.Rect(rect.x + pad, rect.y + pad, 120, 40), "Back")
+        self._search = TextInput(pygame.Rect(rect.x + pad, rect.y + 84, 360, 36), "Search players...")
+        self._results = ArrayList()
+        self._profile = None
+        self._last_query = ""
+        self._list_rect = pygame.Rect(rect.x + pad, rect.y + 132, 390, rect.height - 180)
+        self._profile_rect = pygame.Rect(self._list_rect.right + 16, rect.y + 132, rect.width - (self._list_rect.width + 3 * pad), rect.height - 180)
+
+    def _display_game_name(self, game_id_or_name):
+        key = str(game_id_or_name or "").strip()
+        if key.lower() in self._game_names:
+            return self._game_names[key.lower()]
+        if key in self._game_names:
+            return self._game_names[key]
+        return key or "None"
+
+    def _refresh(self):
+        query = self._search.text.strip()
+        if query == self._last_query:
+            return
+        self._last_query = query
+        self._results = ArrayList()
+        if not query:
+            return
+        raw = self.on_search_players(query) or ()
+        for i in range(min(25, len(raw))):
+            self._results.append(raw[i])
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        self._search.handle_event(event)
+        if event.type == pygame.KEYDOWN and self._search.focused:
+            self._refresh()
+            if event.key == pygame.K_RETURN and len(self._results) > 0:
+                first = self._results[0]
+                username = first.get("name") or first.get("username")
+                if username:
+                    self._profile = self.on_select_player(username)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._btn_back.contains(event.pos):
+                self.on_back()
+                return
+            if self._list_rect.collidepoint(event.pos):
+                idx = (event.pos[1] - self._list_rect.y - 8) // 28
+                if 0 <= idx < len(self._results):
+                    row = self._results[idx]
+                    username = row.get("name") or row.get("username")
+                    if username:
+                        self._profile = self.on_select_player(username)
+
+    def update(self, dt: float) -> None:
+        self._search.tick(dt)
+        if self._search.focused:
+            self._refresh()
+
+    def draw(self, surface: pygame.Surface) -> None:
+        pygame.draw.rect(surface, COLORS["bg"], self.rect)
+        title = TITLE_FONT.render("Player Search", True, COLORS["accent"])
+        surface.blit(title, (self.rect.centerx - title.get_width() // 2, self.rect.y + 24))
+        sub = SMALL_FONT.render("Search players and view profile details.", True, COLORS["text_dim"])
+        surface.blit(sub, sub.get_rect(center=(self.rect.centerx, self.rect.y + 70)))
+
+        self._search.draw(surface)
+        pygame.draw.rect(surface, COLORS["panel"], self._list_rect, border_radius=10)
+        pygame.draw.rect(surface, COLORS["border"], self._list_rect, 1, border_radius=10)
+        y = self._list_rect.y + 8
+        for i in range(min(18, len(self._results))):
+            row = self._results[i]
+            name = row.get("name") or row.get("username") or "unknown"
+            rr = pygame.Rect(self._list_rect.x + 8, y, self._list_rect.width - 16, 24)
+            if rr.collidepoint(pygame.mouse.get_pos()):
+                pygame.draw.rect(surface, COLORS["row_hover"], rr, border_radius=6)
+            surface.blit(SMALL_FONT.render(str(name), True, COLORS["text"]), (rr.x + 8, rr.y + 4))
+            y += 28
+
+        pygame.draw.rect(surface, COLORS["panel"], self._profile_rect, border_radius=10)
+        pygame.draw.rect(surface, COLORS["border"], self._profile_rect, 1, border_radius=10)
+        if self._profile:
+            name = self._profile.get("name", "Player")
+            surface.blit(BODY_FONT.render(str(name), True, COLORS["accent"]), (self._profile_rect.x + 12, self._profile_rect.y + 10))
+            fav = self._display_game_name(self._profile.get("favorite_game", ""))
             lines = ArrayList()
-            lines.append(f"Minutes: {self._selected_profile.get('total_play_time', 0)}")
-            lines.append(f"Messages: {self._selected_profile.get('messages_sent', 0)}")
-            lines.append(f"Favorite: {self._selected_profile.get('favorite_game', '') or 'None'}")
-            lines.append(f"Games: {self._selected_profile.get('games_played', 0)}")
+            lines.append(f"Minutes: {self._profile.get('total_play_time', 0)}")
+            lines.append(f"Messages: {self._profile.get('messages_sent', 0)}")
+            lines.append(f"Favorite: {fav}")
+            lines.append(f"Games Played: {self._profile.get('games_played', 0)}")
             for i, line in enumerate(lines):
-                surface.blit(SMALL_FONT.render(line, True, COLORS["text"]), (box.x + 10, box.y + 34 + i * 20))
+                surface.blit(SMALL_FONT.render(str(line), True, COLORS["text"]), (self._profile_rect.x + 12, self._profile_rect.y + 44 + i * 24))
+        else:
+            hint = SMALL_FONT.render("Select a player from the results.", True, COLORS["text_dim"])
+            surface.blit(hint, (self._profile_rect.x + 12, self._profile_rect.y + 16))
+
+        self._btn_back.draw(surface, self._btn_back.contains(pygame.mouse.get_pos()))
 
 
 # --- Player stats ----------------------------------------------------------
@@ -1272,6 +1363,7 @@ class PlaySessionScreen:
 class AppScreen(Enum):
     LOGIN = auto()
     BROWSER = auto()
+    PLAYER_SEARCH = auto()
     STATS = auto()
     HISTORY = auto()
     GAME_OVER = auto()
@@ -1290,6 +1382,7 @@ __all__ = (
     "TextInput",
     "LoginScreen",
     "BrowserScreen",
+    "PlayerSearchScreen",
     "GameInfo",
     "PlayerStats",
     "StatsScreen",

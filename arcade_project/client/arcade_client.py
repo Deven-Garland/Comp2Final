@@ -25,6 +25,7 @@ from client.screens import (
     LeaderboardScreen,
     LoginScreen,
     MatchHistoryScreen,
+    PlayerSearchScreen,
     PlayerStats,
     PlaySessionScreen,
     QueueScreen,
@@ -98,11 +99,19 @@ class ArcadeClient:
             on_stats=self._handle_stats,
             on_history=self._handle_history,
             on_leaderboard=self._handle_leaderboard,
+            on_player_search=self._handle_player_search,
             on_star=self._handle_star,
             on_rate=self._handle_rate,
             on_search_players=self._handle_search_players,
             on_select_player=self._handle_select_player,
             on_game_stats=self._handle_game_stats,
+            games=GAME_LIST,
+        )
+        self._player_search = PlayerSearchScreen(
+            full,
+            on_back=self._handle_back_to_browser,
+            on_search_players=self._handle_search_players,
+            on_select_player=self._handle_select_player,
             games=GAME_LIST,
         )
         self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
@@ -140,6 +149,8 @@ class ArcadeClient:
             return self._login
         if self._current == AppScreen.BROWSER:
             return self._browser
+        if self._current == AppScreen.PLAYER_SEARCH:
+            return self._player_search
         if self._current == AppScreen.STATS:
             return self._stats
         if self._current == AppScreen.HISTORY:
@@ -337,6 +348,9 @@ class ArcadeClient:
         self._history.refresh()
         self._go_to(AppScreen.HISTORY)
 
+    def _handle_player_search(self) -> None:
+        self._go_to(AppScreen.PLAYER_SEARCH)
+
     def _handle_back_to_browser(self) -> None:
         if self._leaderboard_from_play and self._session_id:
             self._leaderboard_from_play = False
@@ -420,7 +434,11 @@ class ArcadeClient:
 
     def _handle_select_player(self, username: str):
         try:
-            return self._conn.get_player_profile(username)
+            profile = self._conn.get_player_profile(username)
+            if profile and hasattr(profile, "get"):
+                favorite_id = profile.get("favorite_game", "")
+                profile["favorite_game"] = GAME_NAMES.get(favorite_id, favorite_id) if favorite_id else "None"
+            return profile
         except Exception as e:
             print(f"[profile] {e}")
             return None
