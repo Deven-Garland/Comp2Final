@@ -50,12 +50,13 @@ def _to_builtin_json(value):
 
 
 class Account:
-    def __init__(self, username, password, favorite_game="", minutes_played=0, messages_sent=0):
+    def __init__(self, username, password, favorite_game="", minutes_played=0, messages_sent=0, avatar=1):
         self._username = username
         self.password = password
         self.favorite_game = favorite_game
         self.minutes_played = minutes_played
         self.messages_sent = messages_sent
+        self.avatar = avatar
 
     @property
     def username(self):
@@ -127,12 +128,14 @@ class Accounts:
                     favorite_game = ""
                     minutes_played = 0
                     messages_sent = 0
+                    avatar = 1
                 else:
                     password = info.get("password", "")
                     favorite_game = info.get("favorite_game", "")
                     minutes_played = info.get("minutes_played", 0)
                     messages_sent = info.get("messages_sent", 0)
-                account = Account(username, password, favorite_game, minutes_played, messages_sent)
+                    avatar = info.get("avatar", 1)
+                account = Account(username, password, favorite_game, minutes_played, messages_sent, avatar)
                 self.accounts[username] = account
                 self.username_filter.add(username)
         except Exception as e:
@@ -148,6 +151,7 @@ class Accounts:
                 account_data["favorite_game"] = account.favorite_game
                 account_data["minutes_played"] = account.minutes_played
                 account_data["messages_sent"] = account.messages_sent
+                account_data["avatar"] = account.avatar
                 data[account.username] = account_data
             with open(ACCOUNTS_FILE, "w") as f:
                 json.dump(_to_builtin_json(data), f, indent=2)
@@ -226,6 +230,18 @@ class Accounts:
         self.accounts.remove(username)
         self._save()
         return True
+
+    def set_avatar(self, username, avatar_num):
+        if username not in self.accounts:
+            return False
+        self.accounts[username].avatar = int(avatar_num)
+        self._save()
+        return True
+
+    def get_avatar(self, username):
+        if username not in self.accounts:
+            return 1
+        return getattr(self.accounts[username], 'avatar', 1)
 
     def __len__(self):
         return len(self.accounts)

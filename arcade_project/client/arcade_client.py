@@ -107,7 +107,12 @@ class ArcadeClient:
             on_game_stats=self._handle_game_stats,
             games=GAME_LIST,
         )
-        self._stats = StatsScreen(full, on_back=self._handle_back_to_browser)
+        self._stats = StatsScreen(
+            full,
+            on_back=self._handle_back_to_browser,
+            on_set_avatar=lambda n: self._conn._request("set_avatar", {"username": self._username, "avatar_num": n}),
+        )
+
         self._game_over = GameOverScreen(full, on_back=self._handle_back_to_browser)
         self._history = MatchHistoryScreen(
             full,
@@ -276,16 +281,18 @@ class ArcadeClient:
 
     def _handle_stats(self) -> None:
         try:
-            minutes = self._conn.get_minutes(self._username)
-            fav_id = self._conn.get_favorite(self._username)
+            resp = self._conn._request("get_player_stats", {"username": self._username})
+            data = resp.get("data") or {}
+            fav_id   = data.get("favorite_game", "")
             fav_name = GAME_NAMES.get(fav_id, fav_id) if fav_id else "None"
-            messages = self._conn.get_messages_sent(self._username)
+            avatar   = int(self._conn._request("get_avatar", {"username": self._username}).get("data", 1) or 1)
             self._stats.set_stats(PlayerStats(
-                games_played=int(self._conn._request("get_player_stats", {"username": self._username}).get("data", {}).get("games_played", 0)),
-                messages_sent=int(messages) if messages else 0,
-                favorite_game=fav_name,
-                minutes_played=int(minutes) if minutes else 0,
+                games_played   = int(data.get("games_played", 0)),
+                messages_sent  = int(data.get("messages_sent", 0)),
+                favorite_game  = fav_name,
+                minutes_played = int(data.get("minutes_played", 0)),
             ))
+            self._stats.set_avatar(avatar)
         except Exception:
             pass
         self._go_to(AppScreen.STATS)

@@ -790,7 +790,12 @@ class PlatformServer:
         result["favorite_game"] = favorite or ""
         return result
 
+    def set_avatar(self, username, avatar_num):
+        return self.accounts.set_avatar(username, avatar_num)
 
+    def get_avatar(self, username):
+        return self.accounts.get_avatar(username)
+    
 class GameRegistry:
     def __init__(self, game_servers=None):
         self.game_servers = HashTable()
@@ -889,6 +894,8 @@ class RequestDispatcher:
     allowed_methods.append("search_players")
     allowed_methods.append("get_player_profile")
     allowed_methods.append("get_player_stats")
+    allowed_methods.append("set_avatar")
+    allowed_methods.append("get_avatar")
 
     def __init__(self, platform):
         self.platform = platform
