@@ -220,8 +220,8 @@ class ServerConnection:
 
     # --- Chat --------------------------------------------------------------
 
-    def send_chat(self, message, game="global", recipient=None):
-        game_id = game if game else self._session_id
+    def send_chat(self, message, chat_channel=None, game="global", recipient=None):
+        game_id = chat_channel if chat_channel else self._session_id
         if game_id is None:
             game_id = "global"
         payload = self._payload((

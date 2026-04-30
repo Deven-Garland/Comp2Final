@@ -94,7 +94,8 @@ class PlatformServer:
         self.max_players_per_instance = DEFAULT_MAX_PLAYERS_PER_INSTANCE
         self.next_game_id = 1
         self.active_game_id = None
-        self.instance_player_counts = HashTable()  # game_id -> int player count
+        self.instance_player_counts = HashTable()  # game_id -> int player count (compat mirror)
+        self.instance_players = HashTable()  # game_id -> HashTable(username -> True)
         self.pending_matches = HashTable()  # username -> game_id, cleared when player acknowledges
         # Separate leaderboards/counters per game + stat.
         # Example board names: "ellie:deaths", "deven:disconnects", "global:score".
@@ -166,6 +167,7 @@ class PlatformServer:
         payload["next_game_id"] = self.next_game_id
         payload["active_game_id"] = self.active_game_id
         payload["instance_player_counts"] = self.instance_player_counts
+        payload["instance_players"] = self._serialize_instance_players()
         payload["game_counters"] = self._serialize_game_counters()
         payload["history"] = self._serialize_history()
         try:
@@ -192,6 +194,19 @@ class PlatformServer:
         self.instance_player_counts = HashTable()
         for game_id, count in raw_counts.items():
             self.instance_player_counts[int(game_id)] = int(count)
+
+        self.instance_players = HashTable()
+        raw_players = payload.get("instance_players", {})
+        if not raw_players:
+            # Older runtime snapshots tracked only aggregate counts, which drift over time.
+            # Reset occupancy state so connection status is rebuilt from live matches.
+            self.instance_player_counts = HashTable()
+            self.active_game_id = None
+        for game_id, usernames in raw_players.items():
+            members = HashTable()
+            for username in usernames:
+                members[username] = True
+            self.instance_players[int(game_id)] = members
 
         # Restore per-board counters and rebuild corresponding leaderboard entries.
         self.game_counters = HashTable()
@@ -252,8 +267,7 @@ class PlatformServer:
         if len(players) == 0:
             return None
         game_id = self._get_or_create_available_instance(len(players))
-        current = self.instance_player_counts[game_id] if game_id in self.instance_player_counts else 0
-        self.instance_player_counts[game_id] = current + len(players)
+        self._add_players_to_instance(game_id, players)
         # store pending match for every matched player so all their polls succeed
         for p in players:
             self.pending_matches[p] = game_id
@@ -273,13 +287,14 @@ class PlatformServer:
         Reuse current instance until it reaches max capacity, then open new one.
         """
         if self.active_game_id is not None:
-            current_count = self.instance_player_counts[self.active_game_id] if self.active_game_id in self.instance_player_counts else 0
+            current_count = self._get_instance_player_count(self.active_game_id)
             if current_count + incoming_players <= self.max_players_per_instance:
                 return self.active_game_id
 
         game_id = self.next_game_id
         self.next_game_id += 1
         self.chat.start_session(game_id)
+        self.instance_players[game_id] = HashTable()
         self.instance_player_counts[game_id] = 0
         self.active_game_id = game_id
         return game_id
@@ -322,7 +337,7 @@ class PlatformServer:
         """
         Return occupancy for a game instance so clients can show X/30 connections.
         """
-        current = self.instance_player_counts[game_id] if game_id in self.instance_player_counts else 0
+        current = self._get_instance_player_count(game_id)
         payload = HashTable()
         payload["game_id"] = game_id
         payload["current_players"] = current
@@ -341,18 +356,63 @@ class PlatformServer:
                 score=score if player == winner else 0,
                 play_time=0,
             )
-        if game_id in self.instance_player_counts:
-            current = self.instance_player_counts[game_id]
-            remaining = current - len(players)
-            if remaining <= 0:
-                self.instance_player_counts.remove(game_id)
-                self.chat.end_session(game_id)
-                if self.active_game_id == game_id:
-                    self.active_game_id = None
-            else:
-                self.instance_player_counts[game_id] = remaining
+        self._remove_players_from_instance(game_id, players)
         self._save_runtime_state()
         return True
+
+    def _serialize_instance_players(self):
+        data = HashTable()
+        for game_id in self.instance_players:
+            members = self.instance_players[game_id]
+            usernames = ArrayList()
+            for username in members:
+                usernames.append(username)
+            data[game_id] = tuple(usernames)
+        return data
+
+    def _get_instance_player_count(self, game_id):
+        if game_id in self.instance_players:
+            return len(self.instance_players[game_id])
+        if game_id in self.instance_player_counts:
+            return int(self.instance_player_counts[game_id])
+        return 0
+
+    def _add_players_to_instance(self, game_id, players):
+        if game_id not in self.instance_players:
+            self.instance_players[game_id] = HashTable()
+        members = self.instance_players[game_id]
+        for username in players:
+            members[username] = True
+        self.instance_player_counts[game_id] = len(members)
+
+    def _remove_players_from_instance(self, game_id, players):
+        if game_id not in self.instance_players:
+            # Fallback for older runtime-state data that only had counts.
+            if game_id in self.instance_player_counts:
+                current = int(self.instance_player_counts[game_id])
+                remaining = current - len(players)
+                if remaining <= 0:
+                    self.instance_player_counts.remove(game_id)
+                    self.chat.end_session(game_id)
+                    if self.active_game_id == game_id:
+                        self.active_game_id = None
+                else:
+                    self.instance_player_counts[game_id] = remaining
+            return
+
+        members = self.instance_players[game_id]
+        for username in players:
+            if username in members:
+                members.remove(username)
+
+        remaining = len(members)
+        self.instance_player_counts[game_id] = remaining
+        if remaining <= 0:
+            self.instance_players.remove(game_id)
+            self.instance_player_counts.remove(game_id)
+            self.chat.end_session(game_id)
+            if self.active_game_id == game_id:
+                self.active_game_id = None
 
     def _get_or_create_board(self, board_name):
         if board_name not in self.game_leaderboards:

@@ -70,6 +70,7 @@ class ArcadeClient:
         self._username = ""
         self._current_game_id = ""
         self._session_id = ""
+        self._chat_channel = "global"
         self._chat_shown = set()
         self._ellie_game = None
         self._session_start_time = None
@@ -345,8 +346,12 @@ class ArcadeClient:
 
     def _handle_send_chat(self, text: str) -> None:
         try:
-            chat_target = self._session_id or self._current_game_id or "global"
-            resp = self._conn.send_chat(text, game=chat_target)
+            chat_target = self._chat_channel if self._session_id else (self._current_game_id or "global")
+            resp = self._conn.send_chat(
+                text,
+                chat_channel=chat_target,
+                game=self._current_game_id or "global",
+            )
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._play.add_chat(self._username, text)
             else:
@@ -397,6 +402,7 @@ class ArcadeClient:
         self._play.clear_chat()
         self._chat_shown.clear()
         self._session_id = ""
+        self._chat_channel = "global"
         self._ellie_game = None
         self._go_to(AppScreen.BROWSER)
 
@@ -415,7 +421,8 @@ class ArcadeClient:
             on_send_chat=self._handle_send_chat,
             on_leave=self._handle_leave,
         )
-        self._play.set_chat_channel(session_id)
+        self._chat_channel = f"{self._current_game_id}:{session_id}" if self._current_game_id else str(session_id)
+        self._play.set_chat_channel(self._chat_channel)
         self._play.add_chat("server", "Match found! Game starting...")
         self._chat_shown.clear()
 
@@ -486,7 +493,7 @@ class ArcadeClient:
 
         elif self._current == AppScreen.PLAY and self._session_id:
             try:
-                chat_data = self._conn.poll_chat(self._session_id)
+                chat_data = self._conn.poll_chat(self._chat_channel or self._session_id)
                 messages = chat_data.get("messages", ArrayList()) if hasattr(chat_data, "get") else ArrayList()
                 for msg in messages:
                     key = (msg.get("sender"), msg.get("message"), msg.get("time"))
