@@ -7,7 +7,7 @@ Handles connection to game server with support for three serialization formats:
 - BINARY: Fixed 88-byte struct
 
 Usage:
-    client = NetworkClient("Alice", serializer='json')
+    client = NetworkClient("Alice", serializer='text')
     client = NetworkClient("Bob", serializer='json')
     client = NetworkClient("Charlie", serializer='binary')
 """
@@ -18,22 +18,22 @@ import json
 import struct
 from queue import Queue
 
+
 class NetworkClient:
-    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='json', game_id='ellie'):
+    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='text', game_id='ellie'):
         self.player_name = player_name
         self.server_host = server_host
         self.server_port = server_port
         self.serializer = serializer.lower()  # 'text', 'json', or 'binary'
         self.game_id = game_id
         
-        if self.serializer != 'json':
-            raise ValueError(f"Invalid serializer: {serializer}. Must be 'json'")
+        if self.serializer not in ['text', 'json', 'binary']:
+            raise ValueError(f"Invalid serializer: {serializer}. Must be 'text', 'json', or 'binary'")
         
         self.sock = None
         self.connected = False
         self.my_player_id = None
-        self.instance_id = None
-
+        
         self.update_queue = Queue()
         self.receiver_thread = None
         self.running = False
@@ -87,28 +87,30 @@ class NetworkClient:
     def _process_message(self, msg):
         """Process a message from server"""
         # First check message type (before any separator)
-        msg = msg.strip("\r")
-
         if msg.startswith("CONNECTED|"):
-            # CONNECTED|player_id  or  CONNECTED|player_id|instance_id
-            parts = msg.split("|")
+            parts = msg.split('|')
             self.my_player_id = int(parts[1])
-            if len(parts) > 2 and parts[2]:
-                self.instance_id = int(parts[2])
             print(f"Assigned player ID: {self.my_player_id}")
-
-        elif msg.startswith("STATE|") and "||" in msg:
-            # New: STATE|instance_id||<ser>||<ser>||...
-            # Legacy: STATE||<ser>||<ser>||...
-            parts = msg.split("||")
+            
+        elif msg.startswith("STATE||") or (msg.startswith("STATE|") and "||" in msg):
+            # Game state update
+            # Format: STATE||<serialized_player1>||<serialized_player2>||...
+            # Players are separated by || (double pipe) to avoid conflicts with serialization formats
+            parts = msg.split('||')
+            print(f"[DEBUG] Received STATE message with {len(parts)-1} player entries")
             players = {}
+            
             for i in range(1, len(parts)):
-                chunk = parts[i].strip()
-                if not chunk:
-                    continue
-                player_data = self._deserialize_player(chunk)
-                if player_data:
-                    players[player_data["id"]] = player_data
+                if parts[i]:
+                    print(f"[DEBUG] Parsing player {i}: '{parts[i][:50]}...'")  # First 50 chars
+                    player_data = self._deserialize_player(parts[i])
+                    if player_data:
+                        print(f"[DEBUG] Parsed player: ID={player_data['id']}, Name={player_data['name']}")
+                        players[player_data['id']] = player_data
+                    else:
+                        print(f"[DEBUG] Failed to parse player data")
+            
+            print(f"[DEBUG] Total players parsed: {len(players)}")
             self.update_queue.put(players)
     
     def _deserialize_player(self, data):

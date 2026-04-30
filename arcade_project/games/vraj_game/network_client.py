@@ -18,12 +18,14 @@ import json
 import struct
 from queue import Queue
 
+
 class NetworkClient:
-    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='text'):
+    def __init__(self, player_name, server_host='localhost', server_port=8080, serializer='text', game_id='vraj'):
         self.player_name = player_name
         self.server_host = server_host
         self.server_port = server_port
         self.serializer = serializer.lower()  # 'text', 'json', or 'binary'
+        self.game_id = game_id
         
         if self.serializer not in ['text', 'json', 'binary']:
             raise ValueError(f"Invalid serializer: {serializer}. Must be 'text', 'json', or 'binary'")
@@ -90,7 +92,7 @@ class NetworkClient:
             self.my_player_id = int(parts[1])
             print(f"Assigned player ID: {self.my_player_id}")
             
-        elif msg.startswith("STATE||"):
+        elif msg.startswith("STATE||") or (msg.startswith("STATE|") and "||" in msg):
             # Game state update
             # Format: STATE||<serialized_player1>||<serialized_player2>||...
             # Players are separated by || (double pipe) to avoid conflicts with serialization formats
@@ -200,7 +202,7 @@ class NetworkClient:
     def send_update(self, x, y, character_type="", status="down"):
         """Send our position, character type, and status to server (uses standard UPDATE format)"""
         if self.connected and self.my_player_id is not None:
-            msg = f"UPDATE|{self.my_player_id}|{x}|{y}|{self.player_name}|{character_type}|{status}\n"
+            msg = f"UPDATE|{self.my_player_id}|{x}|{y}|{self.player_name}|{character_type}|{status}|{self.game_id}\n"
             try:
                 self.sock.send(msg.encode('utf-8'))
             except:

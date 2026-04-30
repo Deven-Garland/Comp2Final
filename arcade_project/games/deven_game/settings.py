@@ -1,10 +1,8 @@
 import os
 
-# Absolute root for all art assets (repo /graphics). Paths must not depend on cwd
-# when running `python main.py` from code/game/.
+# Absolute root for this game's art assets.
 _GAME_DIR = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.normpath(os.path.join(_GAME_DIR, "..", ".."))
-GRAPHICS_ROOT = os.path.join(_REPO_ROOT, "graphics")
+GRAPHICS_ROOT = os.path.join(_GAME_DIR, "graphics")
 
 
 def graphics_path(*parts):

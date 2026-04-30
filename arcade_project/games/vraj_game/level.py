@@ -18,7 +18,7 @@ from datastructures.patrol_path import PatrolPath
 import sys
 
 class Level:
-    def __init__(self, player_name, character_class, server_host='localhost', server_port=8080, serializer='text'):
+    def __init__(self, player_name, character_class, server_host='localhost', server_port=8080, serializer='json'):
         # Get the display surface
         self.display_surface = pygame.display.get_surface()
 
@@ -33,7 +33,7 @@ class Level:
         self.create_map()
 
         # Network setup with serializer
-        self.network = NetworkClient(player_name, server_host, server_port, serializer)
+        self.network = NetworkClient(player_name, server_host, server_port, serializer, game_id='vraj')
         self.connected = self.network.connect()
 
         # Track other players
@@ -168,8 +168,6 @@ class Level:
         updates = self.network.get_updates()
 
         if updates:
-            self.connection_status = f"Connected - {len(updates)} players online ({self.network.serializer.upper()})"
-
             current_player_ids = set()
 
             for player_id, data in updates.items():
@@ -217,6 +215,8 @@ class Level:
                 del self.other_players[player_id]
 
             self.player.other_players = list(self.other_players.values())
+            current_count = len(self.other_players) + 1
+            self.connection_status = f"Connected - {current_count} players online ({self.network.serializer.upper()})"
 
     def handle_events(self, events):
         """Handle pygame events (pass from main game loop)"""

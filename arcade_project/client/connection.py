@@ -111,6 +111,13 @@ class ServerConnection:
             return resp.get("data") or ArrayList()
         return ArrayList()
 
+    def get_game_list_sorted(self, sort_by="popularity", descending=True):
+        payload = self._payload((("sort_by", sort_by), ("descending", bool(descending))))
+        resp = self._request("list_games", payload)
+        if resp.get("status") == "ok":
+            return resp.get("data") or ArrayList()
+        return ArrayList()
+
     # --- Stats -------------------------------------------------------------
 
     def get_leaderboard(self, top_n=10):
@@ -155,6 +162,17 @@ class ServerConnection:
             return resp.get("data") or 0
         return 0
 
+    def get_player_history_sorted(self, username, sort_by="date", descending=True):
+        payload = self._payload((
+            ("username", username),
+            ("sort_by", sort_by),
+            ("descending", bool(descending)),
+        ))
+        resp = self._request("player_history", payload)
+        if resp.get("status") == "ok":
+            return resp.get("data") or ArrayList()
+        return ArrayList()
+
     def report_disconnect(self, username, game="global"):
         return self._request("player_disconnected", self._payload((("username", username), ("game", game))))
 
@@ -189,7 +207,12 @@ class ServerConnection:
     # --- Matchmaking -------------------------------------------------------
 
     def join_queue(self, game="global", skill_rating=1000):
-        return self._request("join_queue", self._payload((("username", self._username), ("game", game))))
+        response = self._request("join_queue", self._payload((("username", self._username), ("game", game))))
+        if response.get("status") != "ok":
+            message = str(response.get("message", ""))
+            if "unexpected keyword argument 'game'" in message or "bad request parameters" in message:
+                response = self._request("join_queue", self._payload((("username", self._username),)))
+        return response
 
     def leave_queue(self):
         pass
@@ -215,12 +238,10 @@ class ServerConnection:
 
     # --- Chat --------------------------------------------------------------
 
-    def send_chat(self, message, game="global", recipient=None):
-        game_id = self._session_id
-        try:
-            game_id = int(game_id) if game_id is not None else None
-        except (TypeError, ValueError):
-            pass
+    def send_chat(self, message, chat_channel=None, game="global", recipient=None):
+        game_id = chat_channel if chat_channel else self._session_id
+        if game_id is None:
+            game_id = "global"
         payload = self._payload((
             ("game_id", game_id),
             ("username", self._username),
@@ -229,12 +250,10 @@ class ServerConnection:
         ))
         return self._request("send_message", payload)
 
-    def poll_chat(self, session_id):
-        try:
-            session_id = int(session_id)
-        except (TypeError, ValueError):
-            pass
-        resp = self._request("get_chat", self._payload((("game_id", session_id),)))
+    def poll_chat(self, chat_channel):
+        if chat_channel is None:
+            chat_channel = "global"
+        resp = self._request("get_chat", self._payload((("game_id", chat_channel),)))
         if resp.get("status") == "ok":
             return resp.get("data") or ArrayList()
         return ArrayList()
