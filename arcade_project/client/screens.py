@@ -291,6 +291,9 @@ class BrowserScreen:
             max(0, rows * 26),
         )
 
+    def _selected_profile_rect(self) -> pygame.Rect:
+        return pygame.Rect(self.rect.right - 304, self.rect.y + 132, 280, 122)
+
     def set_games(self, games: List[GameInfo]) -> None:
         self.games = ArrayList()
         for game in games:
@@ -378,9 +381,12 @@ class BrowserScreen:
                         return
             clicked_search = self._search_input.rect.collidepoint(event.pos)
             clicked_results = result_box.collidepoint(event.pos)
-            if not clicked_search and not clicked_results:
+            profile_box = self._selected_profile_rect()
+            clicked_profile = self._selected_profile is not None and profile_box.collidepoint(event.pos)
+            if not clicked_search and not clicked_results and not clicked_profile:
                 self._search_results = ArrayList()
                 self._last_search_text = self._search_input.text.strip()
+                self._selected_profile = None
 
             if self._btn_stats.contains(event.pos):
                 self.on_stats()
@@ -555,7 +561,7 @@ class BrowserScreen:
             self._btn_game_stats.draw(surface, self._btn_game_stats.contains(mp))
 
         if self._selected_profile:
-            box = pygame.Rect(self.rect.right - 304, self.rect.y + 132, 280, 122)
+            box = self._selected_profile_rect()
             pygame.draw.rect(surface, COLORS["panel"], box, border_radius=8)
             pygame.draw.rect(surface, COLORS["border"], box, 1, border_radius=8)
             name = self._selected_profile.get("name", "Player")
