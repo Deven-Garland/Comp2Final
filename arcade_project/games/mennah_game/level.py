@@ -354,6 +354,7 @@ class Level:
 
     def update_network(self):
         """Handle network synchronization"""
+        self.connected = bool(self.network and self.network.connected)
         if not self.connected:
             self.connection_status = "Disconnected"
             return
@@ -382,8 +383,12 @@ class Level:
 
                     all_classes = get_all_character_classes()
                     CharClass = None
+                    incoming_slug = character_type.replace(" ", "_").strip()
                     for cls in all_classes:
-                        if cls.get_display_name().lower() == character_type:
+                        display = str(cls.get_display_name()).lower().strip()
+                        display_slug = display.replace(" ", "_")
+                        class_slug = cls.__name__.lower().strip()
+                        if incoming_slug in (display_slug, class_slug, display):
                             CharClass = cls
                             break
 
@@ -414,6 +419,9 @@ class Level:
                 del self.other_players[player_id]
 
             self.player.other_players = list(self.other_players.values())
+            current_count = len(self.other_players) + 1
+            self.connection_status = f"Connected - {current_count} players online ({self.network.serializer.upper()})"
+        else:
             current_count = len(self.other_players) + 1
             self.connection_status = f"Connected - {current_count} players online ({self.network.serializer.upper()})"
 

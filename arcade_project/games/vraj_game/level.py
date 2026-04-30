@@ -184,8 +184,12 @@ class Level:
 
                     all_classes = get_all_character_classes()
                     CharClass = None
+                    incoming_slug = character_type.replace(" ", "_").strip()
                     for cls in all_classes:
-                        if cls.get_display_name().lower() == character_type:
+                        display = str(cls.get_display_name()).lower().strip()
+                        display_slug = display.replace(" ", "_")
+                        class_slug = cls.__name__.lower().strip()
+                        if incoming_slug in (display_slug, class_slug, display):
                             CharClass = cls
                             break
 
