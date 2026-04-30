@@ -40,8 +40,12 @@ WINDOW_W = 1024
 WINDOW_H = 680
 FPS = 60
 WINDOW_TITLE = "MOSFET Arcade"
-SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 9000
+SERVER_HOST = os.environ.get("ARCADE_PLATFORM_HOST", "127.0.0.1")
+try:
+    SERVER_PORT = int(os.environ.get("ARCADE_PLATFORM_PORT", "9000"))
+except ValueError:
+    print("[warn] Invalid ARCADE_PLATFORM_PORT; using default 9000")
+    SERVER_PORT = 9000
 
 def _build_game_list():
     games = ArrayList()
