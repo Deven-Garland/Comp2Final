@@ -16,6 +16,7 @@ class Character1(Character):
         self.attack = 20
         self.defense = 15
         self.speed = 7
+        self.import_player_assets()
 
     def special_ability(self):
         self.counter_ready = True
@@ -41,6 +42,7 @@ class Character2(Character):
         self.attack = 17
         self.defense = 20
         self.speed = 9
+        self.import_player_assets()
 
     def special_ability(self):
         self.attack += 7
@@ -66,6 +68,7 @@ class Character3(Character):
         self.attack = 15
         self.defense = 11
         self.speed = 8
+        self.import_player_assets()
 
     def special_ability(self):
         self.attack += 2
@@ -94,6 +97,7 @@ class Character4(Character):
         self.defense = 18
         self.speed = 6
         self.unbreakable = False
+        self.import_player_assets()
 
     def special_ability(self):
         self.unbreakable = True

@@ -20,7 +20,7 @@ from settings import *
 class Tile(pygame.sprite.Sprite):
     """A single tile in the world map."""
 
-    def __init__(self, pos, groups, sprite_type, surface=pygame.Surface((TILESIZE, TILESIZE))):
+    def __init__(self, pos, groups, sprite_type="boundary", surface=None):
         """
         Initialize a tile.
 
@@ -33,7 +33,17 @@ class Tile(pygame.sprite.Sprite):
         """
         super().__init__(groups)
         self.sprite_type = sprite_type
-        self.image = surface
+
+        if surface is not None:
+            self.image = surface
+        else:
+            # Match Kimberly's visible map style for boundary tiles so
+            # Vraj's level is not a black screen.
+            try:
+                self.image = pygame.image.load("../../graphics/test/rock.png").convert_alpha()
+            except Exception:
+                self.image = pygame.Surface((TILESIZE, TILESIZE))
+                self.image.fill((70, 70, 90))
 
         # Objects are tall (2 tiles) — offset them upward so their base
         # sits on the correct tile.

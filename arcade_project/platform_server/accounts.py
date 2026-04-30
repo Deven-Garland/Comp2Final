@@ -51,7 +51,7 @@ def _to_builtin_json(value):
 
 class Account:
     def __init__(self, username, password, favorite_game="", minutes_played=0, messages_sent=0):
-        self.username = username
+        self._username = username
         self.password = password
         self.favorite_game = favorite_game
         self.minutes_played = minutes_played
