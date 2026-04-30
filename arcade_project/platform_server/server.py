@@ -32,6 +32,7 @@ from .player_search import PlayerSearch
 from platform_server.ratings import Ratings
 from datastructures.array import ArrayList
 from datastructures.hash_table import HashTable
+from datastructures.sorting import insertion_sort
 
 
 DEFAULT_HOST = os.getenv("PLATFORM_SERVER_HOST", "127.0.0.1")
@@ -155,6 +156,9 @@ class PlatformServer:
                 row["game_id"] = match.game_id
                 row["players"] = tuple(match.players)
                 row["winner"] = match.winner
+                row["score"] = match.score
+                row["duration"] = match.duration
+                row["ended_at"] = match.ended_at
                 rows.append(
                     row
                 )
@@ -226,6 +230,9 @@ class PlatformServer:
                     match.get("game_id"),
                     match.get("players", ()),
                     match.get("winner"),
+                    score=match.get("score", 0),
+                    duration=match.get("duration", 0),
+                    ended_at=match.get("ended_at"),
                 )
 
     def register(self, username, password):
@@ -299,8 +306,48 @@ class PlatformServer:
         self.active_game_id = game_id
         return game_id
 
-    def list_games(self):
-        return self.games.list_games()
+    def _get_game_popularity(self, game_name):
+        board_name = f"{game_name}:sessions"
+        if board_name not in self.game_counters:
+            return 0
+        counters = self.game_counters[board_name]
+        total = 0
+        for username in counters:
+            total += int(counters[username])
+        return total
+
+    def _get_game_rating(self, game_name):
+        if game_name not in self.ratings.game_ratings:
+            return 0.0
+        return float(self.ratings.game_ratings[game_name].average())
+
+    def list_games(self, sort_by="popularity", descending=True):
+        """
+        Return game catalog sorted for concrete platform use-cases:
+        - popularity: total completed sessions per game
+        - rating: average stars
+        - recency: most recently registered game first
+        """
+        rows = ArrayList()
+        for game in self.games.list_games():
+            row = HashTable()
+            row["name"] = game["name"]
+            row["host"] = game["host"]
+            row["port"] = game["port"]
+            row["popularity"] = self._get_game_popularity(game["name"])
+            row["rating"] = self._get_game_rating(game["name"])
+            row["recency"] = int(game.get("added_order", 0))
+            rows.append(row)
+
+        if sort_by == "rating":
+            key_fn = lambda row: (row["rating"], row["name"])
+        elif sort_by == "recency":
+            key_fn = lambda row: (row["recency"], row["name"])
+        else:
+            key_fn = lambda row: (row["popularity"], row["name"])
+
+        sorted_rows = insertion_sort(rows, key=key_fn, reverse=bool(descending))
+        return tuple(sorted_rows)
 
     def get_game_server(self, game):
         return self.games.get_game(game)
@@ -345,7 +392,7 @@ class PlatformServer:
         return payload
 
     def end_game(self, game_id, players, winner, score, game="global"):
-        self.history.add_match(game_id, players, winner)
+        self.history.add_match(game_id, players, winner, score=score, duration=0)
         self.leaderboard.add_score(winner, score)
         self._set_board_score(f"{game}:score", winner, score)
         self._set_board_score("global:score", winner, score)
@@ -514,8 +561,8 @@ class PlatformServer:
             return ArrayList()
         return self.game_leaderboards[board_name].range_query(low, high)
 
-    def player_history(self, username):
-        return self.history.get_player_history(username)
+    def player_history(self, username, sort_by="date", descending=True):
+        return self.history.get_player_history(username, sort_by=sort_by, descending=descending)
 
     def search_players(self, prefix):
         """Return list of player profiles whose name starts with prefix."""
@@ -575,6 +622,7 @@ class PlatformServer:
 class GameRegistry:
     def __init__(self, game_servers=None):
         self.game_servers = HashTable()
+        self._next_added_order = 1
         for name, host, port in game_servers or ():
             self.add_game(name, host, port)
 
@@ -585,6 +633,8 @@ class GameRegistry:
         game["name"] = name
         game["host"] = host
         game["port"] = int(port)
+        game["added_order"] = self._next_added_order
+        self._next_added_order += 1
         self.game_servers[name] = game
 
     def list_games(self):
@@ -595,6 +645,7 @@ class GameRegistry:
             row["name"] = game["name"]
             row["host"] = game["host"]
             row["port"] = game["port"]
+            row["added_order"] = game.get("added_order", 0)
             games.append(row)
         return tuple(games)
 

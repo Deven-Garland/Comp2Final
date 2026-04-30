@@ -40,7 +40,7 @@ This is the network API your clients use to talk to the platform.
 
 ### Game Discovery / Routing
 
-- `list_games()` -> `[{"name": str, "host": str, "port": int}, ...]`
+- `list_games(sort_by="popularity", descending=true)` -> `[{"name": str, "host": str, "port": int, "popularity": int, "rating": float, "recency": int}, ...]`
 - `get_game_server(game)` -> `{"name": str, "host": str, "port": int}`
 - `send_game_request(game, request)` -> forwarded game-server response
 
@@ -61,7 +61,7 @@ This is the network API your clients use to talk to the platform.
 
 ### Profile / Stats / Search
 
-- `player_history(username)` -> player match history
+- `player_history(username, sort_by="date", descending=true)` -> player match history sorted by `date`, `duration`, or `score`
 - `search_players(prefix)` -> matching profile list
 - `get_player_profile(username)` -> profile object or `null`
 - `set_favorite(username, game_id)` -> bool-like result

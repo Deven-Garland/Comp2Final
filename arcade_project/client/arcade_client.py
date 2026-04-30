@@ -116,6 +116,8 @@ class ArcadeClient:
 
         if not self._connected:
             self._login.set_status("Could not reach server. Check your connection.", error=True)
+        else:
+            self._load_sorted_catalog()
 
     def _go_to(self, screen: AppScreen) -> None:
         self._current = screen
@@ -156,6 +158,7 @@ class ArcadeClient:
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._username = username
                 self._login.set_status(f"Welcome back, {username}!", error=False)
+                self._load_sorted_catalog()
                 self._load_favorite()
                 self._load_ratings()
                 self._go_to(AppScreen.BROWSER)
@@ -177,6 +180,7 @@ class ArcadeClient:
                 self._username = username
                 self._conn.login(username, password)
                 self._login.set_status(f"Account created! Welcome, {username}!", error=False)
+                self._load_sorted_catalog()
                 self._load_favorite()
                 self._load_ratings()
                 self._go_to(AppScreen.BROWSER)
@@ -206,6 +210,50 @@ class ArcadeClient:
             self._browser.set_ratings(ratings)
         except Exception:
             self._browser.set_ratings(HashTable())
+
+    def _catalog_display_info(self):
+        info = HashTable()
+        for game in GAME_LIST:
+            row = HashTable()
+            row["name"] = game.name
+            row["description"] = game.description
+            info[game.id] = row
+        return info
+
+    def _load_sorted_catalog(self) -> None:
+        """
+        Pull server game catalog sorted by popularity and apply it to in-game
+        browser/leaderboard ordering. Falls back to static order if unavailable.
+        """
+        try:
+            rows = self._conn.get_game_list_sorted(sort_by="popularity", descending=True)
+        except Exception:
+            return
+
+        if not rows:
+            return
+
+        display_info = self._catalog_display_info()
+        ordered_games = ArrayList()
+        for row in rows:
+            game_id = row.get("name")
+            if not game_id:
+                continue
+            if game_id in display_info:
+                pretty_name = display_info[game_id]["name"]
+                description = display_info[game_id]["description"]
+            else:
+                pretty_name = str(game_id).title()
+                description = ""
+            ordered_games.append(GameInfo(game_id, pretty_name, description))
+
+        if len(ordered_games) == 0:
+            return
+
+        self._browser.set_games(ordered_games)
+        self._leaderboard.games = ArrayList()
+        for game in ordered_games:
+            self._leaderboard.games.append(game)
 
     def _handle_play(self, game_id: str) -> None:
         self._current_game_id = game_id
@@ -256,8 +304,9 @@ class ArcadeClient:
             fav_id = self._conn.get_favorite(self._username)
             fav_name = GAME_NAMES.get(fav_id, fav_id) if fav_id else "None"
             messages = self._conn.get_messages_sent(self._username)
+            history = self._conn.get_player_history_sorted(self._username, sort_by="date", descending=True)
             self._stats.set_stats(PlayerStats(
-                games_played=0,
+                games_played=len(history) if history else 0,
                 messages_sent=int(messages) if messages else 0,
                 favorite_game=fav_name,
                 minutes_played=int(minutes) if minutes else 0,

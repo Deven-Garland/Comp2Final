@@ -111,6 +111,13 @@ class ServerConnection:
             return resp.get("data") or ArrayList()
         return ArrayList()
 
+    def get_game_list_sorted(self, sort_by="popularity", descending=True):
+        payload = self._payload((("sort_by", sort_by), ("descending", bool(descending))))
+        resp = self._request("list_games", payload)
+        if resp.get("status") == "ok":
+            return resp.get("data") or ArrayList()
+        return ArrayList()
+
     # --- Stats -------------------------------------------------------------
 
     def get_leaderboard(self, top_n=10):
@@ -154,6 +161,17 @@ class ServerConnection:
         if resp.get("status") == "ok":
             return resp.get("data") or 0
         return 0
+
+    def get_player_history_sorted(self, username, sort_by="date", descending=True):
+        payload = self._payload((
+            ("username", username),
+            ("sort_by", sort_by),
+            ("descending", bool(descending)),
+        ))
+        resp = self._request("player_history", payload)
+        if resp.get("status") == "ok":
+            return resp.get("data") or ArrayList()
+        return ArrayList()
 
     def report_disconnect(self, username, game="global"):
         return self._request("player_disconnected", self._payload((("username", username), ("game", game))))
