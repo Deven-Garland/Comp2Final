@@ -1,6 +1,8 @@
 """
 UI screens for the arcade client (pygame).
 
+Author: Team MOSFET (Deven Garland, Ellie Lutz, Kimberly, Mennah Dewidar, Vraj)
+
 Screens: Login, Game Browser, Stats, GameStats, Match Queue, Play Session (game area + chat).
 
 Wire callbacks from arcade_client / connection layer; this module only handles
