@@ -344,7 +344,7 @@ class ArcadeClient:
             return
         self._go_to(AppScreen.BROWSER)
 
-    def _load_leaderboard_data(self, game_id: str, stat: str):
+    def _load_leaderboard_data(self, game_id: str, stat: str, top_n: int = 10):
         top_rows = ArrayList()
         range_rows = ArrayList()
         rank_value = None
@@ -366,14 +366,16 @@ class ArcadeClient:
         elif "bad request parameters" in str(rank_resp.get("message", "")):
             rank_value = None
 
-        range_resp = self._conn.get_score_range(game_id, stat, 1, 1000000)
+        # Right panel now acts as selectable Top N (5/10/15/20) for easier use.
+        range_resp = self._conn.get_game_leaderboard(game_id, stat=stat, top_n=int(top_n))
         if range_resp.get("status") == "ok":
             for row in (range_resp.get("data") or ()):
                 range_rows.append(str(row))
         elif "bad request parameters" in str(range_resp.get("message", "")):
-            # Older servers may not support range query endpoints.
-            for row in top_rows:
-                range_rows.append(str(row))
+            legacy_range = self._conn.get_leaderboard(top_n=int(top_n))
+            if legacy_range.get("status") == "ok":
+                for row in (legacy_range.get("data") or ()):
+                    range_rows.append(str(row))
 
         return top_rows, rank_value, range_rows
 
@@ -472,7 +474,9 @@ class ArcadeClient:
                 except Exception:
                     final_score = 0
             game_name = self._current_game_id or "global"
-            elapsed_minutes = max(0, int(elapsed_seconds // 60))
+            elapsed_minutes = 0
+            if elapsed_seconds > 0:
+                elapsed_minutes = max(1, int((elapsed_seconds + 59) // 60))
             end_game_payload = HashTable()
             end_game_payload["game_id"] = int(self._session_id)
             end_game_payload["players"] = [self._username]
@@ -597,6 +601,25 @@ class ArcadeClient:
 
         self._go_to(AppScreen.PLAY)
 
+    def _sync_play_connections_from_game(self) -> None:
+        """
+        Keep top-right connection count aligned with active players currently
+        present in the live game state (local player + remote players).
+        """
+        if not self._play or not self._ellie_game:
+            return
+        level = getattr(self._ellie_game, "level", None)
+        if not level:
+            return
+        try:
+            others = getattr(level, "other_players", None)
+            if others is None:
+                return
+            current_players = max(1, int(len(others)) + 1)
+            self._play.set_connection_status(current_players, 30)
+        except Exception:
+            pass
+
     def _poll_server(self) -> None:
         if self._current == AppScreen.QUEUE:
             try:
@@ -642,6 +665,7 @@ class ArcadeClient:
                 self._play.set_connection_status(current_players, max_players)
             except Exception:
                 pass
+            self._sync_play_connections_from_game()
 
     def run(self) -> None:
         self._running = True
@@ -676,6 +700,7 @@ class ArcadeClient:
                 self._ellie_game.chat_focused = self._play.chat_input_focused
                 try:
                     self._ellie_game.update(dt)
+                    self._sync_play_connections_from_game()
                     if self._ellie_game.state == "done":
                         # Default to a normal leave unless a game explicitly marks death.
                         reason = getattr(self._ellie_game, "leave_reason", None) or "disconnect"
