@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-# ============================================================
-# server.py PATCH — ratings persistence
-# Replace these two methods in PlatformServer in server.py
-# ============================================================
-=======
 # Platform server (you implement).
 """
 server.py - Platform server runtime
@@ -171,7 +165,6 @@ class PlatformServer:
                 i += 1
             data[username] = tuple(rows)
         return data
->>>>>>> 1aff9d60f71789b1e9ad83afb7a27993c53d3024
 
     def _save_runtime_state(self):
         payload = HashTable()
@@ -255,7 +248,6 @@ class PlatformServer:
                     ended_at=match.get("ended_at"),
                 )
 
-<<<<<<< HEAD
         # Restore ratings — replay each saved score so averages are correct
         for game_name, scores in payload.get("ratings", {}).items():
             for stars in scores:
@@ -263,7 +255,7 @@ class PlatformServer:
                     self.ratings.rate(game_name, int(stars))
                 except Exception:
                     pass
-=======
+
     def register(self, username, password):
         result = self.accounts.register(username, password)
         # Add new player to search index when they register
@@ -845,4 +837,3 @@ if __name__ == "__main__":
     args = parse_args()
     game_servers = parse_game_servers(args.game_server, args.game_port, args.game_host)
     run_server(host=args.host, port=args.port, players_per_match=args.players_per_match, game_servers=game_servers)
->>>>>>> 1aff9d60f71789b1e9ad83afb7a27993c53d3024
