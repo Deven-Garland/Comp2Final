@@ -221,54 +221,108 @@ class KimberlyGame:
     def _check_card_click(self, pos):
         w, h = self.surface.get_size()
         n = len(self.character_classes)
-        card_w, card_h = 130, 165
-        spacing = 16
-        total = n * card_w + (n - 1) * spacing
-        x0 = max(10, (w - total) // 2)
-        y0 = h // 2 - card_h // 2
+        card_w, card_h, spacing, x0, y0 = self._character_layout(w, h, n)
         for i in range(n):
             rx = x0 + i * (card_w + spacing)
             if pygame.Rect(rx, y0, card_w, card_h).collidepoint(pos):
                 self.selected_idx = i
                 return
 
+    def _character_layout(self, w, h, count):
+        if count <= 0:
+            return 160, 220, 20, 20, h // 2 - 110
+        margin = 20
+        spacing = 20
+        max_card_w = 220
+        min_card_w = 120
+        available = max(100, w - 2 * margin - (count - 1) * spacing)
+        card_w = min(max_card_w, max(min_card_w, available // count))
+        card_h = min(300, max(190, int(card_w * 1.4)))
+        total = count * card_w + (count - 1) * spacing
+        x0 = max(margin, (w - total) // 2)
+        y0 = max(90, min(h - card_h - 80, h // 2 - card_h // 2))
+        return card_w, card_h, spacing, x0, y0
+
+    def _wrap_text_lines(self, text, font, max_width, max_lines=3):
+        words = str(text or "").split(" ")
+        lines = []
+        current = ""
+        for word in words:
+            candidate = word if not current else f"{current} {word}"
+            if font.size(candidate)[0] <= max_width:
+                current = candidate
+                continue
+            if current:
+                lines.append(current)
+            current = word
+            if len(lines) >= max_lines:
+                break
+        if current and len(lines) < max_lines:
+            lines.append(current)
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+        return lines
+
     def _draw_select(self):
         w, h = self.surface.get_size()
         self.surface.fill((18, 18, 28))
-        title_font = pygame.font.Font(None, 34)
-        body_font = pygame.font.Font(None, 21)
-        self.surface.blit(title_font.render("Choose Your Character", True, (94, 234, 212)), (20, 20))
-
+        title_font = pygame.font.Font(None, 42)
+        name_font = pygame.font.Font(None, 28)
+        desc_font = pygame.font.Font(None, 18)
+        body_font = pygame.font.Font(None, 24)
+        title = title_font.render("Choose Your Character", True, (255, 255, 255))
+        self.surface.blit(title, title.get_rect(center=(w // 2, 40)))
         n = len(self.character_classes)
-        card_w, card_h = 130, 165
-        spacing = 16
-        total = n * card_w + (n - 1) * spacing
-        x0 = max(10, (w - total) // 2)
-        y0 = h // 2 - card_h // 2
+        card_w, card_h, spacing, x0, y0 = self._character_layout(w, h, n)
+        mouse_pos = pygame.mouse.get_pos()
         for i, cls in enumerate(self.character_classes):
             rx = x0 + i * (card_w + spacing)
             rr = pygame.Rect(rx, y0, card_w, card_h)
-            pygame.draw.rect(self.surface, (30, 34, 50), rr, border_radius=10)
-            pygame.draw.rect(self.surface, (94, 234, 212) if i == self.selected_idx else (76, 76, 100), rr, 2, border_radius=10)
+
+            hovered = rr.collidepoint(mouse_pos)
+            if i == self.selected_idx:
+                bg = (100, 200, 100)
+            elif hovered:
+                bg = (150, 150, 150)
+            else:
+                bg = (80, 80, 80)
+            pygame.draw.rect(self.surface, bg, rr, border_radius=10)
+            pygame.draw.rect(self.surface, (255, 255, 255), rr, 3, border_radius=10)
+
             image = getattr(cls, "_preview_surface_cached", None)
             if image is None:
                 try:
                     with self._asset_context():
                         image = pygame.image.load(cls.get_preview_image()).convert_alpha()
-                        image = pygame.transform.smoothscale(image, (68, 68))
+                        image = pygame.transform.smoothscale(image, (128, 128))
                 except Exception:
-                    image = None
+                    image = pygame.Surface((128, 128))
+                    image.fill((200, 200, 200))
                 setattr(cls, "_preview_surface_cached", image)
             if image is not None:
-                self.surface.blit(image, image.get_rect(center=(rr.centerx, rr.y + 42)))
+                self.surface.blit(image, image.get_rect(center=(rr.centerx, rr.y + 78)))
+
             name = cls.get_display_name() if hasattr(cls, "get_display_name") else cls.__name__
-            text = body_font.render(name, True, (240, 240, 245))
-            self.surface.blit(text, text.get_rect(center=(rr.centerx, rr.y + 96)))
+            name_text = name_font.render(name, True, (255, 255, 255))
+            self.surface.blit(name_text, name_text.get_rect(center=(rr.centerx, rr.y + 156)))
+
+            desc = cls.get_description() if hasattr(cls, "get_description") else ""
+            desc_lines = self._wrap_text_lines(desc, desc_font, card_w - 16, max_lines=3)
+            for line_idx, line in enumerate(desc_lines):
+                desc_surface = desc_font.render(line, True, (255, 255, 255))
+                self.surface.blit(desc_surface, (rr.x + 8, rr.y + 186 + line_idx * 18))
 
         self._play_btn = pygame.Rect(w // 2 - 80, h - 62, 160, 42)
-        pygame.draw.rect(self.surface, (60, 160, 145), self._play_btn, border_radius=8)
-        play = body_font.render("Play", True, (240, 240, 245))
-        self.surface.blit(play, play.get_rect(center=self._play_btn.center))
+        if n > 0:
+            over_button = self._play_btn.collidepoint(mouse_pos)
+            if self.selected_idx is not None:
+                btn_color = (50, 150, 50) if over_button else (30, 100, 30)
+            else:
+                btn_color = (100, 100, 100)
+            pygame.draw.rect(self.surface, btn_color, self._play_btn, border_radius=8)
+            pygame.draw.rect(self.surface, (255, 255, 255), self._play_btn, 2, border_radius=8)
+            play = body_font.render("Confirm", True, (255, 255, 255))
+            self.surface.blit(play, play.get_rect(center=self._play_btn.center))
 
     def _collect_stats(self):
         if not self.level:

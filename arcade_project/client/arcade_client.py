@@ -353,14 +353,26 @@ class ArcadeClient:
         if top_resp.get("status") == "ok":
             for row in (top_resp.get("data") or ()):
                 top_rows.append(str(row))
+        elif "bad request parameters" in str(top_resp.get("message", "")):
+            # Backward compatibility with older servers that only support global leaderboard.
+            legacy_top = self._conn.get_leaderboard(top_n=10)
+            if legacy_top.get("status") == "ok":
+                for row in (legacy_top.get("data") or ()):
+                    top_rows.append(str(row))
 
         rank_resp = self._conn.get_player_rank(self._username, game_id, stat=stat)
         if rank_resp.get("status") == "ok":
             rank_value = rank_resp.get("data")
+        elif "bad request parameters" in str(rank_resp.get("message", "")):
+            rank_value = None
 
         range_resp = self._conn.get_score_range(game_id, stat, 1, 1000000)
         if range_resp.get("status") == "ok":
             for row in (range_resp.get("data") or ()):
+                range_rows.append(str(row))
+        elif "bad request parameters" in str(range_resp.get("message", "")):
+            # Older servers may not support range query endpoints.
+            for row in top_rows:
                 range_rows.append(str(row))
 
         return top_rows, rank_value, range_rows
@@ -665,7 +677,8 @@ class ArcadeClient:
                 try:
                     self._ellie_game.update(dt)
                     if self._ellie_game.state == "done":
-                        reason = getattr(self._ellie_game, "leave_reason", None) or "death"
+                        # Default to a normal leave unless a game explicitly marks death.
+                        reason = getattr(self._ellie_game, "leave_reason", None) or "disconnect"
                         self._handle_leave(reason=reason)
                 except Exception as e:
                     print(f"[ellie_game] update error: {e}")
