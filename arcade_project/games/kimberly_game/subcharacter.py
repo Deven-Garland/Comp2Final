@@ -10,7 +10,7 @@ from character import Character
 
 class Character1(Character):
     def  __init__(self, pos, groups, obstacle_sprites, player_id=None, is_local=True):
-        super().__init__(pos, groups, obstacle_sprites)
+        super().__init__(pos, groups, obstacle_sprites, player_id=player_id, is_local=is_local)
         self.character_name = "Technical Fighter"
         self.hp = self.max_hp = 180
         self.attack = 20
@@ -35,7 +35,7 @@ class Character1(Character):
 
 class Character2(Character):
     def  __init__(self, pos, groups, obstacle_sprites, player_id=None, is_local=True):
-        super().__init__(pos, groups, obstacle_sprites)
+        super().__init__(pos, groups, obstacle_sprites, player_id=player_id, is_local=is_local)
         self.character_name = "Mystic Warrior"
         self.hp = self.max_hp = 200
         self.attack = 17
@@ -60,7 +60,7 @@ class Character2(Character):
 
 class Character3(Character):
     def  __init__(self, pos, groups, obstacle_sprites, player_id=None, is_local=True):
-        super().__init__(pos, groups, obstacle_sprites)
+        super().__init__(pos, groups, obstacle_sprites, player_id=player_id, is_local=is_local)
         self.character_name = "Balanced Prodigy"
         self.hp = self.max_hp = 105
         self.attack = 15
@@ -87,7 +87,7 @@ class Character3(Character):
 
 class Character4(Character):
     def  __init__(self, pos, groups, obstacle_sprites, player_id=None, is_local=True):
-        super().__init__(pos, groups, obstacle_sprites)
+        super().__init__(pos, groups, obstacle_sprites, player_id=player_id, is_local=is_local)
         self.character_name = "Heavy Enforcer"
         self.hp = self.max_hp = 200
         self.attack = 23
