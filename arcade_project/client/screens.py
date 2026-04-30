@@ -806,7 +806,7 @@ class StatsScreen:
         # Avatar pick buttons (shown as circles, click to select)
         self._avatar_rects = ArrayList()
         av_r   = 32
-        av_y   = rect.y + 110
+        av_y   = rect.y + 140
         spacing = 90
         start_x = rect.centerx - spacing
         for i in range(3):
@@ -841,7 +841,7 @@ class StatsScreen:
  
         # Avatar picker
         av_label = SMALL_FONT.render("Choose your avatar", True, COLORS["text_dim"])
-        surface.blit(av_label, av_label.get_rect(center=(self.rect.centerx, self.rect.y + 82)))
+        surface.blit(av_label, av_label.get_rect(center=(self.rect.centerx, self.rect.y + 95)))
  
         av_r = 32
         for i in range(3):
@@ -854,7 +854,7 @@ class StatsScreen:
                 pygame.draw.circle(surface, COLORS["accent"], (cx, cy), av_r + 4, 3)
  
         sub = SMALL_FONT.render("Totals for your account (from the platform server)", True, COLORS["text_dim"])
-        surface.blit(sub, sub.get_rect(center=(self.rect.centerx, self.rect.y + 168)))
+        surface.blit(sub, sub.get_rect(center=(self.rect.centerx, self.rect.y + 200)))
  
         items = ArrayList()
         items.append(("Games played",  str(self.stats.games_played)))
@@ -865,7 +865,7 @@ class StatsScreen:
         gap    = 16
         card_w = min(420, (self.rect.width - 48 - gap) // 2)
         card_h = 100
-        grid_top = self.rect.y + 195
+        grid_top = self.rect.y + 225
         pair_w   = 2 * card_w + gap
         x0       = self.rect.centerx - pair_w // 2
  
