@@ -9,8 +9,8 @@ from character import Character
 class Knight(Character):
     """A heavily armored frontline fighter"""
 
-    def __init__(self, pos, groups, obstacle_sprites, is_local):
-        super().__init__(pos, groups, obstacle_sprites, is_local)
+    def __init__(self, pos, groups, obstacle_sprites, player_id=None, is_local=True):
+        super().__init__(pos, groups, obstacle_sprites, player_id=player_id, is_local=is_local)
 
         self.character_name = "Knight"
         self.max_hp = 140
@@ -40,8 +40,8 @@ class Knight(Character):
 class Ranger(Character):
     """A fast and agile ranged fighter"""
 
-    def __init__(self, pos, groups, obstacle_sprites, is_local):
-        super().__init__(pos, groups, obstacle_sprites, is_local)
+    def __init__(self, pos, groups, obstacle_sprites, player_id=None, is_local=True):
+        super().__init__(pos, groups, obstacle_sprites, player_id=player_id, is_local=is_local)
 
         self.character_name = "Ranger"
         self.max_hp = 100
@@ -71,8 +71,8 @@ class Ranger(Character):
 class Engineer(Character):
     """A tech-savvy fighter using machines and gadgets"""
 
-    def __init__(self, pos, groups, obstacle_sprites, is_local):
-        super().__init__(pos, groups, obstacle_sprites, is_local)
+    def __init__(self, pos, groups, obstacle_sprites, player_id=None, is_local=True):
+        super().__init__(pos, groups, obstacle_sprites, player_id=player_id, is_local=is_local)
 
         self.character_name = "Engineer"
         self.max_hp = 110
@@ -102,8 +102,8 @@ class Engineer(Character):
 class Mystic(Character):
     """A magical support character using Aether energy"""
 
-    def __init__(self, pos, groups, obstacle_sprites, is_local):
-        super().__init__(pos, groups, obstacle_sprites, is_local)
+    def __init__(self, pos, groups, obstacle_sprites, player_id=None, is_local=True):
+        super().__init__(pos, groups, obstacle_sprites, player_id=player_id, is_local=is_local)
 
         self.character_name = "Mystic"
         self.max_hp = 90
