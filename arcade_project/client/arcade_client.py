@@ -531,19 +531,13 @@ class ArcadeClient:
 
         elif self._current == AppScreen.PLAY and self._session_id:
             try:
-                try:
-                    game_id = int(self._session_id)
-                except (TypeError, ValueError):
-                    game_id = self._session_id
-                resp = self._conn._request("get_chat", {"game_id": game_id})
-                if resp.get("status") == "ok":
-                    data = resp.get("data") or HashTable()
-                    messages = data.get("messages", ArrayList()) if hasattr(data, "get") else ArrayList()
-                    for msg in messages:
-                        key = (msg.get("sender"), msg.get("message"), msg.get("time"))
-                        if key not in self._chat_shown and msg.get("sender") != self._username:
-                            self._play.add_chat(msg["sender"], msg["message"], msg.get("time", 0.0))
-                            self._chat_shown[key] = True
+                chat_data = self._conn.poll_chat(self._chat_channel or self._session_id)
+                messages = chat_data.get("messages", ArrayList()) if hasattr(chat_data, "get") else ArrayList()
+                for msg in messages:
+                    key = (msg.get("sender"), msg.get("message"), msg.get("time"))
+                    if key not in self._chat_shown and msg.get("sender") != self._username:
+                        self._play.add_chat(msg["sender"], msg["message"], msg.get("time", 0.0))
+                        self._chat_shown[key] = True
             except Exception as e:
                 print(f"[poll chat] {e}")
 
