@@ -25,6 +25,7 @@ from client.screens import (
     LeaderboardScreen,
     LoginScreen,
     MatchHistoryScreen,
+    PlayerSearchScreen,
     PlayerStats,
     PlaySessionScreen,
     QueueScreen,
@@ -98,6 +99,7 @@ class ArcadeClient:
             on_stats=self._handle_stats,
             on_history=self._handle_history,
             on_leaderboard=self._handle_leaderboard,
+            on_player_search=self._handle_player_search,
             on_star=self._handle_star,
             on_rate=self._handle_rate,
             on_search_players=self._handle_search_players,
@@ -114,6 +116,13 @@ class ArcadeClient:
             games=GAME_LIST,
         )
         self._game_stats = GameStatsScreen(full, on_back=self._handle_back_to_browser)
+        self._player_search = PlayerSearchScreen(
+            full,
+            on_back=self._handle_back_to_browser,
+            on_search_players=self._handle_search_players,
+            on_select_player=self._handle_select_player,
+            games=GAME_LIST,
+        )
         self._leaderboard = LeaderboardScreen(
             full,
             on_back=self._handle_back_to_browser,
@@ -148,6 +157,8 @@ class ArcadeClient:
             return self._game_over
         if self._current == AppScreen.GAME_STATS:
             return self._game_stats
+        if self._current == AppScreen.PLAYER_SEARCH:
+            return self._player_search
         if self._current == AppScreen.LEADERBOARD:
             return self._leaderboard
         if self._current == AppScreen.QUEUE:
@@ -278,6 +289,9 @@ class ArcadeClient:
         except Exception:
             pass
         self._go_to(AppScreen.STATS)
+
+    def _handle_player_search(self) -> None:
+        self._go_to(AppScreen.PLAYER_SEARCH)
 
     def _handle_game_stats(self, game_id: str) -> None:
         game_name = GAME_NAMES.get(game_id, game_id) if game_id else game_id
