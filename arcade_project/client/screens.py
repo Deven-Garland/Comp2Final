@@ -808,6 +808,9 @@ class MatchHistoryScreen:
         self._games.append(("all", "All Games"))
         for game in games or ():
             self._games.append((game.id, game.name))
+        self._game_names = HashTable()
+        for game_id, game_name in self._games:
+            self._game_names[str(game_id)] = str(game_name)
         self._outcomes = ("all", "win", "loss")
         self._ranges = (
             ("all", None),
@@ -833,6 +836,12 @@ class MatchHistoryScreen:
 
     def _current_range_days(self):
         return self._ranges[self._range_idx][1]
+
+    def _display_game_name(self, game_id_or_name) -> str:
+        key = str(game_id_or_name or "")
+        if key in self._game_names:
+            return self._game_names[key]
+        return key or "Unknown"
 
     def refresh(self) -> None:
         try:
@@ -904,7 +913,7 @@ class MatchHistoryScreen:
             row = self._rows[i]
             ended_at = float(row.get("ended_at", 0.0))
             date_str = time.strftime("%Y-%m-%d %H:%M", time.localtime(ended_at)) if ended_at > 0 else "-"
-            game_str = str(row.get("game_name", row.get("game_id", "global")))
+            game_str = self._display_game_name(row.get("game_name", row.get("game_id", "global")))
             outcome = str(row.get("outcome", ""))
             score = str(row.get("score", 0))
             duration = str(row.get("duration", 0))
@@ -932,8 +941,10 @@ class LeaderboardScreen:
         self.on_back = on_back
         self.on_refresh = on_refresh
         self.games = ArrayList()
+        self._game_names = HashTable()
         for game in games or ():
             self.games.append(game)
+            self._game_names[str(game.id)] = str(game.name)
         self.game_idx = 0
         self.stats = ArrayList()
         for stat in ("score", "chats", "deaths", "disconnects", "play_time", "sessions"):
@@ -958,6 +969,14 @@ class LeaderboardScreen:
     def _current_stat(self) -> str:
         return self.stats[self.stat_idx]
 
+    def _display_game_name(self, game_id: str) -> str:
+        key = str(game_id or "")
+        if key in self._game_names:
+            return self._game_names[key]
+        if key == "global":
+            return "Global"
+        return key
+
     def refresh(self) -> None:
         game = self._current_game()
         stat = self._current_stat()
@@ -969,7 +988,7 @@ class LeaderboardScreen:
                 self.top_rows.append(row)
             for row in range_rows_raw:
                 self.range_rows.append(row)
-            self.status = f"Loaded {game}:{stat}"
+            self.status = f"Loaded {self._display_game_name(game)}:{stat}"
         except Exception as error:
             self.status = f"Load failed: {error}"
             self.top_rows = ArrayList()
@@ -998,7 +1017,7 @@ class LeaderboardScreen:
         title = TITLE_FONT.render("Leaderboard", True, COLORS["accent"])
         surface.blit(title, (self.rect.centerx - title.get_width() // 2, self.rect.y + 24))
 
-        game_label = f"Game: {self._current_game()}"
+        game_label = f"Game: {self._display_game_name(self._current_game())}"
         stat_label = f"Stat: {self._current_stat()}"
         self._btn_game.label = game_label
         self._btn_stat.label = stat_label

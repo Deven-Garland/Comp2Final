@@ -459,15 +459,52 @@ class ArcadeClient:
                     final_score = int(getattr(self._ellie_game, "score", 0))
                 except Exception:
                     final_score = 0
+            game_name = self._current_game_id or "global"
+            elapsed_minutes = max(0, int(elapsed_seconds // 60))
+            end_game_payload = HashTable()
+            end_game_payload["game_id"] = int(self._session_id)
+            end_game_payload["players"] = [self._username]
+            end_game_payload["winner"] = self._username
+            end_game_payload["score"] = final_score
+            end_game_payload["game"] = game_name
+            end_game_payload["duration"] = elapsed_seconds
+            end_resp = None
             try:
-                self._conn._request("end_game", {
-                    "game_id": int(self._session_id),
-                    "players": [self._username],
-                    "winner": self._username,
-                    "score": final_score,
-                    "game": self._current_game_id or "global",
-                    "duration": elapsed_seconds,
-                })
+                end_resp = self._conn._request("end_game", end_game_payload)
+                # Backward compatibility: older platform servers do not accept
+                # the newer "duration" field yet.
+                if end_resp.get("status") == "error":
+                    msg = str(end_resp.get("message", ""))
+                    if "unexpected keyword argument 'duration'" in msg:
+                        fallback_payload = HashTable()
+                        for key in end_game_payload:
+                            if key != "duration":
+                                fallback_payload[key] = end_game_payload[key]
+                        end_resp = self._conn._request("end_game", fallback_payload)
+                # Older servers may also not support "game"; fall back to core args.
+                if end_resp.get("status") == "error":
+                    msg = str(end_resp.get("message", ""))
+                    if "unexpected keyword argument 'game'" in msg:
+                        minimal_payload = HashTable()
+                        minimal_payload["game_id"] = end_game_payload["game_id"]
+                        minimal_payload["players"] = end_game_payload["players"]
+                        minimal_payload["winner"] = end_game_payload["winner"]
+                        minimal_payload["score"] = end_game_payload["score"]
+                        end_resp = self._conn._request("end_game", minimal_payload)
+                # Last-resort write path: if end_game still fails, update session
+                # counters directly so leaderboard/history do not stay stale.
+                if end_resp.get("status") == "error":
+                    self._conn._request(
+                        "record_session_result",
+                        self._conn._payload((
+                            ("game", game_name),
+                            ("username", self._username),
+                            ("score", final_score),
+                            ("play_time", elapsed_minutes),
+                        )),
+                    )
+                if end_resp.get("status") == "error":
+                    print(f"[leave] end_game error: {end_resp.get('message')}")
             except Exception as e:
                 print(f"[leave] end_game error: {e}")
 
