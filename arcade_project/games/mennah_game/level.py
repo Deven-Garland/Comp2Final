@@ -50,7 +50,10 @@ class Level:
         self.font = pygame.font.Font(None, 24)
 
         # Connection status
-        self.connection_status = "Connecting..."
+        self.connection_status = (
+            f"Connected - 1 players online ({self.network.serializer.upper()})"
+            if self.connected else "Disconnected"
+        )
 
         # Inventory UI
         self.inventory_ui = InventoryUI(self.player.inventory)
@@ -358,6 +361,7 @@ class Level:
         if not self.connected:
             self.connection_status = "Disconnected"
             return
+        self.connection_status = f"Connected - {len(self.other_players) + 1} players online ({self.network.serializer.upper()})"
 
         # Send our position, character type, and status to server
         character_type = self.player.character_name.lower()
@@ -451,6 +455,11 @@ class Level:
 
     def draw_status(self):
         """Draw HUD: connection, hints, health bar, XP, equipped weapon."""
+        if self.connected and str(self.connection_status).lower().startswith("connecting"):
+            current_count = len(self.other_players) + 1
+            self.connection_status = f"Connected - {current_count} players online ({self.network.serializer.upper()})"
+        elif not self.connected and str(self.connection_status).lower().startswith("connecting"):
+            self.connection_status = "Disconnected"
         # Connection status
         status_color = (0, 255, 0) if self.connected else (255, 100, 100)
         self.display_surface.blit(
