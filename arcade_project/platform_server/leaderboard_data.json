@@ -18,17 +18,17 @@
       "mennah": 1
     },
     "mennah:disconnects": {
-      "Deven": 3,
+      "Deven": 4,
       "gizmo": 2,
       "Deven1": 3,
       "mennah": 1,
-      "Deven2": 2
+      "Deven2": 3
     },
     "mennah:sessions": {
-      "Deven": 3,
+      "Deven": 4,
       "gizmo": 2,
       "mennah": 1,
-      "Deven2": 2
+      "Deven2": 3
     },
     "deven:disconnects": {
       "Deven": 7,
@@ -46,11 +46,11 @@
       "Deven2": 2
     },
     "kimberly:disconnects": {
-      "Deven": 2,
+      "Deven": 3,
       "Deven1": 2,
       "gizmo": 4,
       "mennah": 1,
-      "Deven2": 2
+      "Deven2": 3
     },
     "ellie:sessions": {
       "Deven": 5,
@@ -63,7 +63,7 @@
       "Deven": 2,
       "gizmo": 2,
       "mennah": 0,
-      "Deven2": 1
+      "Deven2": 2
     },
     "deven:deaths": {
       "sigma": 1
@@ -76,10 +76,10 @@
       "Deven2": 2
     },
     "kimberly:play_time": {
-      "Deven": 1,
+      "Deven": 2,
       "gizmo": 1,
       "mennah": 0,
-      "Deven2": 2
+      "Deven2": 4
     },
     "global:chats": {
       "Deven": 14,
@@ -89,18 +89,18 @@
       "mennah": 5
     },
     "global:sessions": {
-      "Deven": 19,
+      "Deven": 21,
       "gizmo": 24,
       "Deven1": 2,
       "deven": 1,
       "mennah": 14,
-      "Deven2": 10
+      "Deven2": 13
     },
     "kimberly:sessions": {
-      "Deven": 2,
+      "Deven": 3,
       "gizmo": 2,
       "mennah": 1,
-      "Deven2": 2
+      "Deven2": 3
     },
     "1:chats": {
       "Deven": 1,
@@ -134,19 +134,19 @@
       "Deven1": 2,
       "gizmo": 4,
       "mennah": 1,
-      "Deven2": 1
+      "Deven2": 2
     },
     "mennah:play_time": {
-      "Deven": 1,
+      "Deven": 2,
       "gizmo": 2,
       "mennah": 0,
-      "Deven2": 3
+      "Deven2": 4
     },
     "vraj:sessions": {
       "Deven": 2,
       "gizmo": 3,
       "mennah": 1,
-      "Deven2": 1
+      "Deven2": 2
     },
     "mennah:chats": {
       "gizmo": 1
@@ -159,10 +159,10 @@
       "mennah": 1
     },
     "mennah:sessions": {
-      "Deven": 3,
+      "Deven": 4,
       "gizmo": 2,
       "mennah": 1,
-      "Deven2": 2
+      "Deven2": 3
     },
     "deven:disconnects": {
       "Deven": 7,
@@ -174,11 +174,11 @@
       "Deven2": 3
     },
     "kimberly:disconnects": {
-      "Deven": 2,
+      "Deven": 3,
       "Deven1": 2,
       "gizmo": 4,
       "mennah": 1,
-      "Deven2": 2
+      "Deven2": 3
     },
     "ellie:disconnects": {
       "Deven": 4,
@@ -190,7 +190,7 @@
       "Deven": 2,
       "gizmo": 2,
       "mennah": 0,
-      "Deven2": 1
+      "Deven2": 2
     },
     "deven:deaths": {
       "sigma": 1
@@ -203,10 +203,10 @@
       "Deven2": 0
     },
     "kimberly:play_time": {
-      "Deven": 1,
+      "Deven": 2,
       "gizmo": 1,
       "mennah": 0,
-      "Deven2": 2
+      "Deven2": 4
     },
     "global:chats": {
       "Deven": 14,
@@ -216,10 +216,10 @@
       "mennah": 5
     },
     "kimberly:sessions": {
-      "Deven": 2,
+      "Deven": 3,
       "gizmo": 2,
       "mennah": 1,
-      "Deven2": 2
+      "Deven2": 3
     },
     "kimberly:chats": {
       "gizmo": 1
@@ -248,7 +248,7 @@
       "Deven": 2,
       "gizmo": 3,
       "mennah": 1,
-      "Deven2": 1
+      "Deven2": 2
     },
     "ellie:chats": {
       "Deven": 7,
@@ -268,11 +268,11 @@
       "Deven2": 0
     },
     "mennah:disconnects": {
-      "Deven": 3,
+      "Deven": 4,
       "gizmo": 2,
       "Deven1": 3,
       "mennah": 1,
-      "Deven2": 2
+      "Deven2": 3
     },
     "ellie:sessions": {
       "Deven": 5,
@@ -294,12 +294,12 @@
       "Deven2": 0
     },
     "global:sessions": {
-      "Deven": 19,
+      "Deven": 21,
       "gizmo": 24,
       "Deven1": 2,
       "deven": 1,
       "mennah": 14,
-      "Deven2": 10
+      "Deven2": 13
     },
     "1:chats": {
       "Deven": 1,
@@ -322,13 +322,13 @@
       "Deven1": 2,
       "gizmo": 4,
       "mennah": 1,
-      "Deven2": 1
+      "Deven2": 2
     },
     "mennah:play_time": {
-      "Deven": 1,
+      "Deven": 2,
       "gizmo": 2,
       "mennah": 0,
-      "Deven2": 3
+      "Deven2": 4
     },
     "kimberly:score": {
       "Deven": 0,
