@@ -14,8 +14,8 @@ Author: Ellie Lutz
 Date: [4/17/2026]
 Lab: Final Project - Chat
 """
-
 import os
+import re
 import time
 from datastructures.hash_table import HashTable
 from datastructures.circular_buffer import CircularBuffer
@@ -42,6 +42,12 @@ class KeywordFilter:
       - banned: words that are always blocked
       - safe:   game-context words that are never blocked even if they
                 look harmful (prevents false positives like "I killed you")
+ 
+    Also includes a normalizer that catches bypass attempts like:
+      - fuckkk  (repeated letters)
+      - f u c k (spaced letters)
+      - f*ck    (symbols replacing letters)
+ 
     O(n) per message. Works offline, no API needed.
     """
     def __init__(self):
@@ -52,13 +58,30 @@ class KeywordFilter:
         for word in _GAME_SAFE:
             self.safe.append(word)
  
+    def _normalize(self, text):
+        """
+        Clean up bypass attempts before checking against banned words.
+        1. Remove spaces between single letters: "f u c k" -> "fuck"
+        2. Collapse repeated letters: "fuckkk" -> "fuk"
+        3. Remove common symbol substitutions: f*ck -> fck, sh!t -> shit
+        """
+        # Remove spaces between single letters: "f u c k" -> "fuck"
+        text = re.sub(r'\b(\w)\s+(?=\w\b)', r'\1', text)
+        # Collapse repeated letters: "fuckkk" -> "fuk"
+        text = re.sub(r'(.)\1+', r'\1', text)
+        # Remove symbols commonly used to replace letters
+        text = text.replace('*', '').replace('!', 'i').replace('@', 'a').replace('$', 's')
+        return text
+ 
     def is_clean(self, text):
-        words = text.lower().split()
-        for word in words:
-            if word in self.safe:
-                continue
-            if word in self.banned:
-                return False
+        # Check both original and normalized text
+        for version in (text, self._normalize(text)):
+            words = version.lower().split()
+            for word in words:
+                if word in self.safe:
+                    continue
+                if word in self.banned:
+                    return False
         return True
  
  
@@ -70,36 +93,38 @@ class GeminiFilter:
     """
     Uses Google Gemini to moderate messages in context.
     Lazy-initializes the model on first use, same pattern as ai_npc.py.
-    Falls back gracefully if the key is missing or the library is not installed.
+    Falls back to keyword filter if Gemini is unavailable or rate limited.
     """
  
     MODEL = "models/gemini-2.5-flash"
  
     _PROMPT = """
-    You are a chat moderator for an arcade game platform.
-    Players are competing in classic arcade games and chatting with each other.
-    Game-related language like "killed", "destroyed", "die", "shoot" is normal and acceptable.
-    Flag ONLY messages that contain:
-    - Hate speech or slurs
-    - Harassment or threats toward a real person
+    You are a strict chat moderator for an arcade game platform.
+    Your job is to flag ANY message that contains offensive language in ANY form.
+ 
+    ALWAYS FLAG these, no exceptions:
+    - Any profanity or swear words in ANY form: misspelled (fuk, sheit),
+      repeated letters (fuckkk, shhit), spaced out (f u c k),
+      symbols (f*ck, sh!t), or any obvious attempt to write a swear word
+    - Slurs or hate speech of any kind
+    - Harassment or threats
     - Sexual content
-    - Spam or excessive repetition
-    - Attempts to bypass the filter such as spaced letters (f u c k), repeated letters (fuckkk), or symbols replacing letters (f*ck)
-
-    Reply with only "CLEAN" or "FLAGGED".
+ 
+    NEVER FLAG these:
+    - Game language: "killed", "died", "shoot", "destroy", "attack", "dead"
+    - Normal chat: "good game", "nice shot", "well played"
+ 
+    When in doubt, FLAG IT.
+    Reply with ONLY the word "CLEAN" or "FLAGGED", nothing else.
     Message: {message}
     """
  
     def __init__(self):
         self._client = None
         self._model = None  # lazy-initialized on first call
+        self._keyword_filter = KeywordFilter()
  
     def _ensure_model(self):
-        """
-        Same pattern as ai_npc.py — tries environment variable first,
-        then falls back to .env file. Returns False if setup is incomplete
-        so the game keeps running without Gemini.
-        """
         if self._client is not None:
             return True
  
@@ -127,7 +152,7 @@ class GeminiFilter:
  
     def is_clean(self, text):
         if not self._ensure_model():
-            return True  # no Gemini available, let keyword filter decide
+            return self._keyword_filter.is_clean(text)
         try:
             prompt = self._PROMPT.format(message=text)
             response = self._client.models.generate_content(
@@ -136,7 +161,8 @@ class GeminiFilter:
             )
             return "CLEAN" in response.text.upper()
         except Exception:
-            return True  # if API call fails, don't block the message
+            # Gemini failed (rate limit, network etc) — fall back to keyword filter
+            return self._keyword_filter.is_clean(text)
  
  
 # ---------------------------------------------------------------------------
@@ -144,10 +170,6 @@ class GeminiFilter:
 # ---------------------------------------------------------------------------
  
 class Message:
-    """
-    A single chat message. Holds the sender, the text, and the time
-    it was sent so the client can display it properly.
-    """
     def __init__(self, sender, text):
         self.sender = sender
         self.text = text
@@ -172,9 +194,9 @@ class Chat:
  
     Moderation runs in two passes:
       1. KeywordFilter — instant, offline, catches obvious bad words
-      2. GeminiFilter  — smart, context-aware, catches everything else
-    If either flags a message it is blocked before reaching the buffer.
-    If Gemini is unavailable the keyword filter still runs on its own.
+                         including bypass attempts (fuckkk, f u c k, f*ck)
+      2. GeminiFilter  — smart, context-aware, catches everything else.
+                         Falls back to keyword filter if rate limited.
     """
     def __init__(self, buffer_size=20):
         self.buffer_size = buffer_size
@@ -199,10 +221,6 @@ class Chat:
             self.chat_sessions.remove(game_id)
  
     def send_message(self, game_id, sender, text):
-        """
-        Add a new message to a game session's chat.
-        Returns True if sent, False if blocked by moderation.
-        """
         if not self._is_clean(text):
             return False
         if game_id not in self.chat_sessions:

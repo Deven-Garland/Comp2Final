@@ -12,6 +12,10 @@ ECE_HOST = "ece-000.eng.temple.edu"
 PLATFORM_PORT = 50070
 CPP_GAME_PORT = 50072
 
+from arcade_project.platform_server.chat import GeminiFilter
+g = GeminiFilter()
+print("Gemini test:", g.is_clean("fuckkk"))
+
 run_server(
     host="0.0.0.0",
     port=PLATFORM_PORT,
