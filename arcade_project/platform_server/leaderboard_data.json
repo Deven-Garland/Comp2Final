@@ -8,7 +8,7 @@
     },
     "ellie:chats": {
       "Deven": 7,
-      "gizmo": 14,
+      "gizmo": 15,
       "mennah": 2
     },
     "global:disconnects": {
@@ -36,8 +36,9 @@
       "mennah": 3
     },
     "ellie:disconnects": {
-      "Deven": 2,
-      "gizmo": 1
+      "Deven": 3,
+      "gizmo": 2,
+      "mennah": 1
     },
     "kimberly:disconnects": {
       "Deven": 1,
@@ -46,23 +47,24 @@
       "mennah": 1
     },
     "ellie:sessions": {
-      "Deven": 3,
-      "gizmo": 10,
+      "Deven": 4,
+      "gizmo": 11,
       "deven": 1,
-      "mennah": 4
+      "mennah": 5
     },
     "vraj:play_time": {
-      "gizmo": 0,
+      "Deven": 1,
+      "gizmo": 1,
       "mennah": 0
     },
     "deven:deaths": {
       "sigma": 1
     },
     "ellie:play_time": {
-      "Deven": 0,
-      "gizmo": 0,
+      "Deven": 1,
+      "gizmo": 1,
       "deven": 0,
-      "mennah": 0
+      "mennah": 1
     },
     "kimberly:play_time": {
       "Deven": 0,
@@ -72,16 +74,16 @@
     "global:chats": {
       "Deven": 14,
       "ellieg": 1,
-      "gizmo": 21,
+      "gizmo": 22,
       "Deven1": 4,
       "mennah": 5
     },
     "global:sessions": {
-      "Deven": 13,
-      "gizmo": 16,
+      "Deven": 15,
+      "gizmo": 18,
       "Deven1": 2,
       "deven": 1,
-      "mennah": 10
+      "mennah": 11
     },
     "kimberly:sessions": {
       "Deven": 1,
@@ -112,8 +114,9 @@
       "mennah": 3
     },
     "vraj:disconnects": {
+      "Deven": 1,
       "Deven1": 2,
-      "gizmo": 2,
+      "gizmo": 3,
       "mennah": 1
     },
     "mennah:play_time": {
@@ -122,7 +125,8 @@
       "mennah": 0
     },
     "vraj:sessions": {
-      "gizmo": 1,
+      "Deven": 1,
+      "gizmo": 2,
       "mennah": 1
     }
   },
@@ -152,11 +156,13 @@
       "mennah": 1
     },
     "ellie:disconnects": {
-      "Deven": 2,
-      "gizmo": 1
+      "Deven": 3,
+      "gizmo": 2,
+      "mennah": 1
     },
     "vraj:play_time": {
-      "gizmo": 0,
+      "Deven": 1,
+      "gizmo": 1,
       "mennah": 0
     },
     "deven:deaths": {
@@ -176,7 +182,7 @@
     "global:chats": {
       "Deven": 14,
       "ellieg": 1,
-      "gizmo": 21,
+      "gizmo": 22,
       "Deven1": 4,
       "mennah": 5
     },
@@ -202,12 +208,13 @@
       "Deven1": 0
     },
     "vraj:sessions": {
-      "gizmo": 1,
+      "Deven": 1,
+      "gizmo": 2,
       "mennah": 1
     },
     "ellie:chats": {
       "Deven": 7,
-      "gizmo": 14,
+      "gizmo": 15,
       "mennah": 2
     },
     "deven:play_time": {
@@ -217,6 +224,7 @@
       "mennah": 0
     },
     "vraj:score": {
+      "Deven": 0,
       "gizmo": 0
     },
     "mennah:disconnects": {
@@ -226,26 +234,26 @@
       "mennah": 1
     },
     "ellie:sessions": {
-      "Deven": 3,
-      "gizmo": 10,
+      "Deven": 4,
+      "gizmo": 11,
       "deven": 1,
-      "mennah": 4
+      "mennah": 5
     },
     "ellie:play_time": {
-      "Deven": 0,
-      "gizmo": 0,
+      "Deven": 1,
+      "gizmo": 1,
       "deven": 0,
-      "mennah": 0
+      "mennah": 1
     },
     "mennah:score": {
       "Deven": 0
     },
     "global:sessions": {
-      "Deven": 13,
-      "gizmo": 16,
+      "Deven": 15,
+      "gizmo": 18,
       "Deven1": 2,
       "deven": 1,
-      "mennah": 10
+      "mennah": 11
     },
     "1:chats": {
       "Deven": 1,
@@ -263,8 +271,9 @@
       "mennah": 0
     },
     "vraj:disconnects": {
+      "Deven": 1,
       "Deven1": 2,
-      "gizmo": 2,
+      "gizmo": 3,
       "mennah": 1
     },
     "mennah:play_time": {
