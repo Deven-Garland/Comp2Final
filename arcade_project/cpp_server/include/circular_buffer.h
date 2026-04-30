@@ -2,7 +2,7 @@
 circular_buffer.h - Circular buffer (ring buffer) template class
 
 A fixed-size buffer that wraps around when full.
-Used as the base for position smoothing strategies.
+Ugsed as the base for position smoothing strategies.
 
 Author: [Deven Garland]
 Date: [2/15/26]
