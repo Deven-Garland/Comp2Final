@@ -73,8 +73,7 @@ class ArcadeClient:
         self._username = ""
         self._current_game_id = ""
         self._session_id = ""
-        self._chat_channel = "global"
-        self._chat_shown = set()
+        self._chat_shown = HashTable()  # used as a set: key=msg tuple str, value=True
         self._ellie_game = None
         self._session_start_time = None
         self._leaderboard_from_play = False
@@ -121,8 +120,6 @@ class ArcadeClient:
 
         if not self._connected:
             self._login.set_status("Could not reach server. Check your connection.", error=True)
-        else:
-            self._load_sorted_catalog()
 
     def _go_to(self, screen: AppScreen) -> None:
         self._current = screen
@@ -165,7 +162,6 @@ class ArcadeClient:
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._username = username
                 self._login.set_status(f"Welcome back, {username}!", error=False)
-                self._load_sorted_catalog()
                 self._load_favorite()
                 self._load_ratings()
                 self._go_to(AppScreen.BROWSER)
@@ -187,7 +183,6 @@ class ArcadeClient:
                 self._username = username
                 self._conn.login(username, password)
                 self._login.set_status(f"Account created! Welcome, {username}!", error=False)
-                self._load_sorted_catalog()
                 self._load_favorite()
                 self._load_ratings()
                 self._go_to(AppScreen.BROWSER)
@@ -218,50 +213,6 @@ class ArcadeClient:
         except Exception:
             self._browser.set_ratings(HashTable())
 
-    def _catalog_display_info(self):
-        info = HashTable()
-        for game in GAME_LIST:
-            row = HashTable()
-            row["name"] = game.name
-            row["description"] = game.description
-            info[game.id] = row
-        return info
-
-    def _load_sorted_catalog(self) -> None:
-        """
-        Pull server game catalog sorted by popularity and apply it to in-game
-        browser/leaderboard ordering. Falls back to static order if unavailable.
-        """
-        try:
-            rows = self._conn.get_game_list_sorted(sort_by="popularity", descending=True)
-        except Exception:
-            return
-
-        if not rows:
-            return
-
-        display_info = self._catalog_display_info()
-        ordered_games = ArrayList()
-        for row in rows:
-            game_id = row.get("name")
-            if not game_id:
-                continue
-            if game_id in display_info:
-                pretty_name = display_info[game_id]["name"]
-                description = display_info[game_id]["description"]
-            else:
-                pretty_name = str(game_id).title()
-                description = ""
-            ordered_games.append(GameInfo(game_id, pretty_name, description))
-
-        if len(ordered_games) == 0:
-            return
-
-        self._browser.set_games(ordered_games)
-        self._leaderboard.games = ArrayList()
-        for game in ordered_games:
-            self._leaderboard.games.append(game)
-
     def _handle_play(self, game_id: str) -> None:
         self._current_game_id = game_id
         game_name = next((g.name for g in GAME_LIST if g.id == game_id), game_id)
@@ -270,14 +221,6 @@ class ArcadeClient:
         self._go_to(AppScreen.QUEUE)
         try:
             resp = self._conn.join_queue(self._current_game_id or "global")
-            # Backward compatibility: older platform servers accept join_queue(username) only.
-            if resp.get("status") != "ok":
-                message = str(resp.get("message", ""))
-                if "unexpected keyword argument 'game'" in message or "bad request parameters" in message:
-                    resp = self._conn._request(
-                        "join_queue",
-                        self._conn._payload((("username", self._username),)),
-                    )
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._queue.set_detail("In queue — waiting for opponent...")
             elif resp.get("status") == "ok":
@@ -311,9 +254,8 @@ class ArcadeClient:
             fav_id = self._conn.get_favorite(self._username)
             fav_name = GAME_NAMES.get(fav_id, fav_id) if fav_id else "None"
             messages = self._conn.get_messages_sent(self._username)
-            history = self._conn.get_player_history_sorted(self._username, sort_by="date", descending=True)
             self._stats.set_stats(PlayerStats(
-                games_played=len(history) if history else 0,
+                games_played=0,
                 messages_sent=int(messages) if messages else 0,
                 favorite_game=fav_name,
                 minutes_played=int(minutes) if minutes else 0,
@@ -437,12 +379,7 @@ class ArcadeClient:
 
     def _handle_send_chat(self, text: str) -> None:
         try:
-            chat_target = self._chat_channel if self._session_id else (self._current_game_id or "global")
-            resp = self._conn.send_chat(
-                text,
-                chat_channel=chat_target,
-                game=self._current_game_id or "global",
-            )
+            resp = self._conn.send_chat(text, game=self._current_game_id or "global")
             if resp.get("status") == "ok" and resp.get("data") is True:
                 self._play.add_chat(self._username, text)
             else:
@@ -500,7 +437,6 @@ class ArcadeClient:
         self._play.clear_chat()
         self._chat_shown.clear()
         self._session_id = ""
-        self._chat_channel = "global"
         self._ellie_game = None
         self._go_to(AppScreen.BROWSER)
 
@@ -519,8 +455,6 @@ class ArcadeClient:
             on_send_chat=self._handle_send_chat,
             on_leave=self._handle_leave,
         )
-        self._chat_channel = f"{self._current_game_id}:{session_id}" if self._current_game_id else str(session_id)
-        self._play.set_chat_channel(self._chat_channel)
         self._play.add_chat("server", "Match found! Game starting...")
         self._chat_shown.clear()
 
@@ -532,33 +466,8 @@ class ArcadeClient:
             except Exception as e:
                 print(f"[ellie_game] Failed to load: {e}")
                 self._ellie_game = None
-        elif self._current_game_id in ("deven", "kimberly", "mennah", "vraj"):
-            try:
-                game_surface = self._play.game_subsurface(self._screen)
-                if self._current_game_id == "deven":
-                    from arcade_project.games.deven_game.game import DevenGame
-                    self._ellie_game = DevenGame(game_surface, self._username)
-                elif self._current_game_id == "kimberly":
-                    from arcade_project.games.kimberly_game.game import KimberlyGame
-                    self._ellie_game = KimberlyGame(game_surface, self._username)
-                elif self._current_game_id == "mennah":
-                    from arcade_project.games.mennah_game.game import MennahGame
-                    self._ellie_game = MennahGame(game_surface, self._username)
-                elif self._current_game_id == "vraj":
-                    from arcade_project.games.vraj_game.game import VrajGame
-                    self._ellie_game = VrajGame(game_surface, self._username)
-            except Exception as e:
-                print(f"[{self._current_game_id}_game] Failed to load: {e}")
-                self._ellie_game = None
         else:
             self._ellie_game = None
-
-        if self._ellie_game is not None and hasattr(self._ellie_game, "level") and self._ellie_game.level:
-            try:
-                channel = f"{self._current_game_id}:{session_id}"
-                self._ellie_game.level.network.game_id = channel
-            except Exception:
-                pass
 
         self._go_to(AppScreen.PLAY)
 
@@ -590,13 +499,19 @@ class ArcadeClient:
 
         elif self._current == AppScreen.PLAY and self._session_id:
             try:
-                chat_data = self._conn.poll_chat(self._chat_channel or self._session_id)
-                messages = chat_data.get("messages", ArrayList()) if hasattr(chat_data, "get") else ArrayList()
-                for msg in messages:
-                    key = (msg.get("sender"), msg.get("message"), msg.get("time"))
-                    if key not in self._chat_shown and msg.get("sender") != self._username:
-                        self._play.add_chat(msg["sender"], msg["message"], msg.get("time", 0.0))
-                        self._chat_shown.add(key)
+                try:
+                    game_id = int(self._session_id)
+                except (TypeError, ValueError):
+                    game_id = self._session_id
+                resp = self._conn._request("get_chat", {"game_id": game_id})
+                if resp.get("status") == "ok":
+                    data = resp.get("data") or HashTable()
+                    messages = data.get("messages", ArrayList()) if hasattr(data, "get") else ArrayList()
+                    for msg in messages:
+                        key = (msg.get("sender"), msg.get("message"), msg.get("time"))
+                        if key not in self._chat_shown and msg.get("sender") != self._username:
+                            self._play.add_chat(msg["sender"], msg["message"], msg.get("time", 0.0))
+                            self._chat_shown.add(key)
             except Exception as e:
                 print(f"[poll chat] {e}")
 
@@ -606,28 +521,7 @@ class ArcadeClient:
                 max_players = status.get("max_players", 30)
                 self._play.set_connection_status(current_players, max_players)
             except Exception:
-                self._sync_play_connections_from_game()
-
-    def _sync_play_connections_from_game(self) -> None:
-        """
-        Fallback connection count source from active game state.
-        This keeps the chat panel's Connections X/30 in sync even if
-        platform-server polling fails temporarily.
-        """
-        if self._current != AppScreen.PLAY or self._ellie_game is None:
-            return
-        if not hasattr(self._ellie_game, "level") or self._ellie_game.level is None:
-            return
-        level = self._ellie_game.level
-        if not hasattr(level, "other_players"):
-            return
-        try:
-            current_players = len(level.other_players) + (1 if getattr(level, "connected", False) else 0)
-            if current_players < 0:
-                current_players = 0
-            self._play.set_connection_status(current_players, 30)
-        except Exception:
-            pass
+                pass
 
     def run(self) -> None:
         self._running = True
@@ -662,10 +556,8 @@ class ArcadeClient:
                 self._ellie_game.chat_focused = self._play.chat_input_focused
                 try:
                     self._ellie_game.update(dt)
-                    self._sync_play_connections_from_game()
                     if self._ellie_game.state == "done":
-                        reason = getattr(self._ellie_game, "leave_reason", None) or "death"
-                        self._handle_leave(reason=reason)
+                        self._handle_leave(reason="death")
                 except Exception as e:
                     print(f"[ellie_game] update error: {e}")
 

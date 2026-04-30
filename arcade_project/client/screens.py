@@ -640,21 +640,22 @@ class StatsScreen:
 class GameStatsScreen:
     """Shows a single player's stats for one specific game."""
 
-    # Human-readable labels for each stat key
-    STAT_LABELS = (
-        ("sessions",     "Sessions Played"),
-        ("score",        "Best Score"),
-        ("play_time",    "Minutes Played"),
-        ("chats",        "Chats Sent"),
-        ("deaths",       "Deaths"),
-        ("disconnects",  "Disconnects"),
-    )
-
     def __init__(self, rect: pygame.Rect, on_back: Callable[[], None]):
         self.rect = rect
         self.on_back = on_back
         self._game_name = ""
-        self._stats: HashTable = HashTable()   # stat_key -> HashTable with "rank" and optional "value"
+        self._stats: HashTable = HashTable()
+        # ArrayList of (stat_key, display_label) pairs
+        self._stat_labels = ArrayList()
+        for pair in (
+            ("sessions",    "Sessions Played"),
+            ("score",       "Best Score"),
+            ("play_time",   "Minutes Played"),
+            ("chats",       "Chats Sent"),
+            ("deaths",      "Deaths"),
+            ("disconnects", "Disconnects"),
+        ):
+            self._stat_labels.append(pair)
         pad = 24
         self._btn_back = Button(pygame.Rect(rect.x + pad, rect.y + pad, 120, 40), "Back")
 
@@ -686,7 +687,7 @@ class GameStatsScreen:
         total_w = cols * card_w + (cols - 1) * gap
         x0 = self.rect.centerx - total_w // 2
 
-        for i, (stat_key, label) in enumerate(self.STAT_LABELS):
+        for i, (stat_key, label) in enumerate(self._stat_labels):
             col = i % cols
             row = i // cols
             x = x0 + col * (card_w + gap)
@@ -915,7 +916,6 @@ class PlaySessionScreen:
         self.rect = rect
         self.game_title = game_title
         self.session_id = session_id
-        self.chat_channel = "global"
         self.on_send_chat = on_send_chat
         self.on_leave = on_leave
         self.chat_lines = ArrayList()
@@ -928,9 +928,9 @@ class PlaySessionScreen:
         pad = 12
         self._history_rect = pygame.Rect(
             self._chat_rect.x + pad,
-            self._chat_rect.y + 70,
+            self._chat_rect.y + 52,
             self._chat_rect.width - 2 * pad,
-            self._chat_rect.height - 138,
+            self._chat_rect.height - 120,
         )
         self._input = TextInput(
             pygame.Rect(
@@ -965,9 +965,6 @@ class PlaySessionScreen:
     def set_connection_status(self, current_players: int, max_players: int) -> None:
         self.connection_count = int(current_players)
         self.connection_limit = int(max_players)
-
-    def set_chat_channel(self, chat_channel: str) -> None:
-        self.chat_channel = str(chat_channel) if chat_channel else "global"
 
     def game_subsurface(self, surface: pygame.Surface) -> pygame.Surface:
         return surface.subsurface(self._game_rect)
@@ -1017,8 +1014,6 @@ class PlaySessionScreen:
         surface.blit(conn_text, (self._chat_rect.x + 12, self._chat_rect.y + 30))
         sid = SMALL_FONT.render(f"Session: {self.session_id[:16]}…", True, COLORS["text_dim"])
         surface.blit(sid, (self._chat_rect.x + 12, self._chat_rect.y + 44))
-        channel = SMALL_FONT.render(f"Channel: {self.chat_channel}", True, COLORS["text_dim"])
-        surface.blit(channel, (self._chat_rect.x + 12, self._chat_rect.y + 58))
 
         pygame.draw.rect(surface, COLORS["input_bg"], self._history_rect, border_radius=8)
         pygame.draw.rect(surface, COLORS["border"], self._history_rect, 1, border_radius=8)
