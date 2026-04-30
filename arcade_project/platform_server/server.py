@@ -511,6 +511,9 @@ class PlatformServer:
 
     def end_game(self, game_id, players, winner, score, game="global", duration=0):
         session_duration = int(duration) if duration is not None else 0
+        play_minutes = 0
+        if session_duration > 0:
+            play_minutes = max(1, int((session_duration + 59) // 60))
         self.history.add_match(
             game_id,
             players,
@@ -527,7 +530,7 @@ class PlatformServer:
                 game=game,
                 username=player,
                 score=score if player == winner else 0,
-                play_time=max(0, session_duration // 60),
+                play_time=play_minutes,
             )
         self._remove_players_from_instance(game_id, players)
         self._save_runtime_state()

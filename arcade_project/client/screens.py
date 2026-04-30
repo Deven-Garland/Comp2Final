@@ -934,7 +934,7 @@ class LeaderboardScreen:
         self,
         rect: pygame.Rect,
         on_back: Callable[[], None],
-        on_refresh: Callable[[str, str], Tuple[List[str], Optional[int], List[str]]],
+        on_refresh: Callable[[str, str, int], Tuple[List[str], Optional[int], List[str]]],
         games: Optional[List[GameInfo]] = None,
     ):
         self.rect = rect
@@ -954,11 +954,16 @@ class LeaderboardScreen:
         self.range_rows = ArrayList()
         self.rank_value: Optional[int] = None
         self.status = ""
+        self.range_sizes = ArrayList()
+        for size in (5, 10, 15, 20):
+            self.range_sizes.append(size)
+        self.range_idx = 1
 
         pad = 24
         self._btn_back = Button(pygame.Rect(rect.x + pad, rect.y + pad, 120, 40), "Back")
         self._btn_game = Button(pygame.Rect(rect.x + pad, rect.y + 84, 220, 36), "Game")
         self._btn_stat = Button(pygame.Rect(rect.x + pad + 236, rect.y + 84, 220, 36), "Stat")
+        self._btn_range = Button(pygame.Rect(rect.x + pad + 472, rect.y + 84, 180, 36), "Top N: 10")
         self._btn_refresh = Button(pygame.Rect(rect.right - pad - 140, rect.y + 84, 140, 36), "Refresh")
 
     def _current_game(self) -> str:
@@ -968,6 +973,9 @@ class LeaderboardScreen:
 
     def _current_stat(self) -> str:
         return self.stats[self.stat_idx]
+
+    def _current_range_size(self) -> int:
+        return int(self.range_sizes[self.range_idx])
 
     def _display_game_name(self, game_id: str) -> str:
         key = str(game_id or "")
@@ -980,15 +988,16 @@ class LeaderboardScreen:
     def refresh(self) -> None:
         game = self._current_game()
         stat = self._current_stat()
+        top_n = self._current_range_size()
         try:
-            top_rows_raw, self.rank_value, range_rows_raw = self.on_refresh(game, stat)
+            top_rows_raw, self.rank_value, range_rows_raw = self.on_refresh(game, stat, top_n)
             self.top_rows = ArrayList()
             self.range_rows = ArrayList()
             for row in top_rows_raw:
                 self.top_rows.append(row)
             for row in range_rows_raw:
                 self.range_rows.append(row)
-            self.status = f"Loaded {self._display_game_name(game)}:{stat}"
+            self.status = f"Loaded {self._display_game_name(game)}:{stat} (Top {top_n})"
         except Exception as error:
             self.status = f"Load failed: {error}"
             self.top_rows = ArrayList()
@@ -1006,6 +1015,9 @@ class LeaderboardScreen:
             elif self._btn_stat.contains(event.pos):
                 self.stat_idx = (self.stat_idx + 1) % len(self.stats)
                 self.refresh()
+            elif self._btn_range.contains(event.pos):
+                self.range_idx = (self.range_idx + 1) % len(self.range_sizes)
+                self.refresh()
             elif self._btn_refresh.contains(event.pos):
                 self.refresh()
 
@@ -1019,13 +1031,16 @@ class LeaderboardScreen:
 
         game_label = f"Game: {self._display_game_name(self._current_game())}"
         stat_label = f"Stat: {self._current_stat()}"
+        range_label = f"Top N: {self._current_range_size()}"
         self._btn_game.label = game_label
         self._btn_stat.label = stat_label
+        self._btn_range.label = range_label
 
         mp = pygame.mouse.get_pos()
         self._btn_back.draw(surface, self._btn_back.contains(mp))
         self._btn_game.draw(surface, self._btn_game.contains(mp))
         self._btn_stat.draw(surface, self._btn_stat.contains(mp))
+        self._btn_range.draw(surface, self._btn_range.contains(mp))
         self._btn_refresh.draw(surface, self._btn_refresh.contains(mp))
 
         rank_text = f"Your rank: {self.rank_value}" if self.rank_value is not None else "Your rank: -"
@@ -1037,7 +1052,7 @@ class LeaderboardScreen:
 
         top_box = pygame.Rect(self.rect.x + 24, self.rect.y + 198, self.rect.width // 2 - 36, self.rect.height - 222)
         range_box = pygame.Rect(self.rect.centerx + 12, self.rect.y + 198, self.rect.width // 2 - 36, self.rect.height - 222)
-        for box, heading in ((top_box, "Top Players"), (range_box, "Range Query")):
+        for box, heading in ((top_box, "Top Players"), (range_box, "Top N")):
             pygame.draw.rect(surface, COLORS["panel"], box, border_radius=10)
             pygame.draw.rect(surface, COLORS["border"], box, 1, border_radius=10)
             hdr = BODY_FONT.render(heading, True, COLORS["text"])
