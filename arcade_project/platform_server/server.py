@@ -775,6 +775,20 @@ class PlatformServer:
 
     def get_lowest_rated_game(self):
         return self.ratings.get_lowest_rated()
+    
+    def get_player_stats(self, username):
+        if not self.accounts.exists(username):
+            return None
+        games_played = self._get_counter_value("global:sessions", username)
+        minutes = self.accounts.get_minutes(username)
+        messages = self.accounts.get_messages_sent(username)
+        favorite = self.accounts.get_favorite(username)
+        result = HashTable()
+        result["games_played"] = games_played
+        result["minutes_played"] = int(minutes) if minutes else 0
+        result["messages_sent"] = int(messages) if messages else 0
+        result["favorite_game"] = favorite or ""
+        return result
 
 
 class GameRegistry:
@@ -843,17 +857,38 @@ class GameConnector:
 
 
 class RequestDispatcher:
-    allowed_methods = (
-        "register", "login", "join_queue", "try_create_match", "acknowledge_match",
-        "list_games", "get_game_server", "send_game_request",
-        "send_message", "get_chat", "instance_status", "end_game", "top_players",
-        "player_history", "set_favorite", "get_favorite",
-        "add_minutes", "get_minutes", "get_messages_sent",
-        "player_disconnected", "player_died",
-        "record_session_result", "player_rank", "players_in_score_range",
-        "rate_game", "get_rating_rankings", "get_highest_rated_game", "get_lowest_rated_game",
-        "search_players", "get_player_profile",
-    )
+    allowed_methods = ArrayList()
+    allowed_methods.append("register")
+    allowed_methods.append("login")
+    allowed_methods.append("join_queue")
+    allowed_methods.append("try_create_match")
+    allowed_methods.append("acknowledge_match")
+    allowed_methods.append("list_games")
+    allowed_methods.append("get_game_server")
+    allowed_methods.append("send_game_request")
+    allowed_methods.append("send_message")
+    allowed_methods.append("get_chat")
+    allowed_methods.append("instance_status")
+    allowed_methods.append("end_game")
+    allowed_methods.append("top_players")
+    allowed_methods.append("player_history")
+    allowed_methods.append("set_favorite")
+    allowed_methods.append("get_favorite")
+    allowed_methods.append("add_minutes")
+    allowed_methods.append("get_minutes")
+    allowed_methods.append("get_messages_sent")
+    allowed_methods.append("player_disconnected")
+    allowed_methods.append("player_died")
+    allowed_methods.append("record_session_result")
+    allowed_methods.append("player_rank")
+    allowed_methods.append("players_in_score_range")
+    allowed_methods.append("rate_game")
+    allowed_methods.append("get_rating_rankings")
+    allowed_methods.append("get_highest_rated_game")
+    allowed_methods.append("get_lowest_rated_game")
+    allowed_methods.append("search_players")
+    allowed_methods.append("get_player_profile")
+    allowed_methods.append("get_player_stats")
 
     def __init__(self, platform):
         self.platform = platform
