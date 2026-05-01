@@ -125,6 +125,7 @@ class PlatformServer:
                 profile["win_rate"] = 0.0
                 profile["favorite_game"] = account.favorite_game
                 profile["messages_sent"] = account.messages_sent
+                profile["avatar"] = int(getattr(account, "avatar", 1) or 1)
                 self.player_search.register(username, username, profile)
 
     def _sync_player_search_profile(self, username):
@@ -139,6 +140,7 @@ class PlatformServer:
         profile["win_rate"] = 0.0
         profile["favorite_game"] = account.favorite_game
         profile["messages_sent"] = account.messages_sent
+        profile["avatar"] = int(getattr(account, "avatar", 1) or 1)
         self.player_search.register(username, username, profile)
 
     def _serialize_game_counters(self):
@@ -364,6 +366,7 @@ class PlatformServer:
             profile["win_rate"] = 0.0
             profile["favorite_game"] = ""
             profile["messages_sent"] = 0
+            profile["avatar"] = 1
             self.player_search.register(username, username, profile)
             self._save_runtime_state()
         return result
@@ -791,7 +794,11 @@ class PlatformServer:
         return result
 
     def set_avatar(self, username, avatar_num):
-        return self.accounts.set_avatar(username, avatar_num)
+        result = self.accounts.set_avatar(username, avatar_num)
+        if result:
+            self._sync_player_search_profile(username)
+            self._save_runtime_state()
+        return result
 
     def get_avatar(self, username):
         return self.accounts.get_avatar(username)
