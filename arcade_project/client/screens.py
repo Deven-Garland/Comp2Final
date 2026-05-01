@@ -651,15 +651,20 @@ class PlayerSearchScreen:
             self._avatars.append(_load_image(fname, (64, 64)))
  
         pad = 24
+        self._title_y = rect.y + 20
+        self._subtitle_y = self._title_y + TITLE_FONT.get_height() + 8
+        search_y = self._subtitle_y + SMALL_FONT.get_height() + 14
+        list_top = search_y + 48
+        list_height = max(120, rect.bottom - list_top - pad)
         self._btn_back  = Button(pygame.Rect(rect.x + pad, rect.y + pad, 120, 40), "Back")
-        self._search    = TextInput(pygame.Rect(rect.x + pad, rect.y + 84, 360, 36), "Search players...")
+        self._search    = TextInput(pygame.Rect(rect.x + pad, search_y, 360, 36), "Search players...")
         self._results   = ArrayList()
         self._profile   = None
         self._last_query = ""
-        self._list_rect    = pygame.Rect(rect.x + pad, rect.y + 132, 390, rect.height - 180)
+        self._list_rect    = pygame.Rect(rect.x + pad, list_top, 390, list_height)
         self._profile_rect = pygame.Rect(
-            self._list_rect.right + 16, rect.y + 132,
-            rect.width - (self._list_rect.width + 3 * pad), rect.height - 180,
+            self._list_rect.right + 16, list_top,
+            rect.width - (self._list_rect.width + 3 * pad), list_height,
         )
  
     def _display_game_name(self, game_id_or_name):
@@ -711,9 +716,9 @@ class PlayerSearchScreen:
     def draw(self, surface: pygame.Surface) -> None:
         pygame.draw.rect(surface, COLORS["bg"], self.rect)
         title = TITLE_FONT.render("Player Search", True, COLORS["accent"])
-        surface.blit(title, (self.rect.centerx - title.get_width() // 2, self.rect.y + 24))
+        surface.blit(title, title.get_rect(midtop=(self.rect.centerx, self._title_y)))
         sub = SMALL_FONT.render("Search players and view profile details.", True, COLORS["text_dim"])
-        surface.blit(sub, sub.get_rect(center=(self.rect.centerx, self.rect.y + 70)))
+        surface.blit(sub, sub.get_rect(midtop=(self.rect.centerx, self._subtitle_y)))
         self._search.draw(surface)
  
         pygame.draw.rect(surface, COLORS["panel"],  self._list_rect, border_radius=10)
