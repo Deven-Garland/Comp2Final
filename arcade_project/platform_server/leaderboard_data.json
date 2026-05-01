@@ -5,7 +5,7 @@
       "gizmo": 1,
       "Deven1": 1,
       "mennah": 2,
-      "Deven2": 6
+      "Deven2": 8
     },
     "ellie:chats": {
       "Deven": 7,
@@ -38,7 +38,7 @@
       "gizmo": 4,
       "Deven1": 4,
       "mennah": 5,
-      "Deven2": 6
+      "Deven2": 8
     },
     "ellie:disconnects": {
       "Deven": 4,
@@ -91,7 +91,7 @@
       "gizmo": 27,
       "Deven1": 4,
       "mennah": 6,
-      "Deven2": 1,
+      "Deven2": 101,
       "Damien": 1
     },
     "global:sessions": {
@@ -100,7 +100,7 @@
       "Deven1": 3,
       "deven": 1,
       "mennah": 18,
-      "Deven2": 16,
+      "Deven2": 18,
       "Damien": 1
     },
     "kimberly:sessions": {
@@ -127,7 +127,7 @@
       "gizmo": 4,
       "Deven1": 3,
       "mennah": 5,
-      "Deven2": 5
+      "Deven2": 7
     },
     "deven:chats": {
       "Deven": 6,
@@ -135,7 +135,7 @@
       "gizmo": 7,
       "Deven1": 4,
       "mennah": 3,
-      "Deven2": 1
+      "Deven2": 101
     },
     "vraj:disconnects": {
       "Deven": 2,
@@ -179,7 +179,7 @@
       "gizmo": 4,
       "Deven1": 4,
       "mennah": 5,
-      "Deven2": 6
+      "Deven2": 8
     },
     "kimberly:disconnects": {
       "Deven": 3,
@@ -224,7 +224,7 @@
       "gizmo": 27,
       "Deven1": 4,
       "mennah": 6,
-      "Deven2": 1,
+      "Deven2": 101,
       "Damien": 1
     },
     "kimberly:sessions": {
@@ -241,7 +241,7 @@
       "gizmo": 4,
       "Deven1": 3,
       "mennah": 5,
-      "Deven2": 5
+      "Deven2": 7
     },
     "deven:chats": {
       "Deven": 6,
@@ -249,7 +249,7 @@
       "gizmo": 7,
       "Deven1": 4,
       "mennah": 3,
-      "Deven2": 1
+      "Deven2": 101
     },
     "deven:score": {
       "Deven1": 0,
@@ -274,7 +274,7 @@
       "gizmo": 1,
       "Deven1": 1,
       "mennah": 2,
-      "Deven2": 6
+      "Deven2": 8
     },
     "vraj:score": {
       "Deven": 0,
@@ -316,7 +316,7 @@
       "Deven1": 3,
       "deven": 1,
       "mennah": 18,
-      "Deven2": 16,
+      "Deven2": 18,
       "Damien": 1
     },
     "1:chats": {
