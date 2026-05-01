@@ -15,6 +15,9 @@ class PlayerSearch:
         self._profiles = HashTable()
         self._sorted_names = ArrayList()
 
+    def _sort_key(self, username):
+        return str(username).lower()
+
     def register(self, username, display_name, profile):
         self._profiles[username] = profile
         if not self._contains_name(username):
@@ -28,9 +31,10 @@ class PlayerSearch:
 
     def _sorted_insert(self, username):
         lo, hi = 0, len(self._sorted_names)
+        key = self._sort_key(username)
         while lo < hi:
             mid = (lo + hi) // 2
-            if self._sorted_names[mid] < username:
+            if self._sort_key(self._sorted_names[mid]) < key:
                 lo = mid + 1
             else:
                 hi = mid
@@ -38,9 +42,10 @@ class PlayerSearch:
 
     def _bisect_left(self, prefix):
         lo, hi = 0, len(self._sorted_names)
+        key = str(prefix).lower()
         while lo < hi:
             mid = (lo + hi) // 2
-            if self._sorted_names[mid] < prefix:
+            if self._sort_key(self._sorted_names[mid]) < key:
                 lo = mid + 1
             else:
                 hi = mid
@@ -60,6 +65,16 @@ class PlayerSearch:
             if profile is not None:
                 results.append(profile)
             i += 1
+        # Compatibility fallback: if names were indexed before case-insensitive ordering,
+        # run a full scan so searches still work without forcing an immediate restart.
+        if len(results) == 0:
+            for i in range(len(self._sorted_names)):
+                name = self._sorted_names[i]
+                if not name.lower().startswith(prefix):
+                    continue
+                profile = self._profiles[name]
+                if profile is not None:
+                    results.append(profile)
         return results
 
     def get_profile(self, username):
