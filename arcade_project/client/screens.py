@@ -1273,6 +1273,8 @@ class ChatLine:
  
  
 class PlaySessionScreen:
+    _MAX_CHAT_LINES = 20
+
     def __init__(
         self,
         rect: pygame.Rect,
@@ -1313,6 +1315,8 @@ class PlaySessionScreen:
  
     def add_chat(self, sender: str, text: str, timestamp: float = 0.0) -> None:
         self.chat_lines.append(ChatLine(sender=sender, text=text, timestamp=timestamp))
+        while len(self.chat_lines) > self._MAX_CHAT_LINES:
+            self.chat_lines.pop(0)
         total_h = len(self.chat_lines) * 40 + 8
         self._chat_scroll = max(0, total_h - self._history_rect.height)
  
