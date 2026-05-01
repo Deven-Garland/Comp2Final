@@ -1028,12 +1028,21 @@ class MatchHistoryScreen:
         self._game_idx    = 0
         self._outcome_idx = 0
         self._range_idx   = 0
+        self._row_scroll = 0
         pad = 24
+        self._title_y = rect.y + 20
+        self._subtitle_y = self._title_y + TITLE_FONT.get_height() + 8
+        self._controls_y = self._subtitle_y + SMALL_FONT.get_height() + 14
+        self._status_y = self._controls_y + 44
+        self._table_top = self._status_y + 28
+        self._table_box = pygame.Rect(rect.x + 24, self._table_top, rect.width - 48, rect.bottom - self._table_top - 24)
+        self._row_height = 24
+        self._header_height = 34
         self._btn_back    = Button(pygame.Rect(rect.x + pad,              rect.y + pad, 120, 40), "Back")
-        self._btn_game    = Button(pygame.Rect(rect.x + pad,              rect.y + 84,  240, 36), "Game: all")
-        self._btn_outcome = Button(pygame.Rect(rect.x + pad + 252,        rect.y + 84,  150, 36), "Outcome: all")
-        self._btn_range   = Button(pygame.Rect(rect.x + pad + 414,        rect.y + 84,  160, 36), "Range: all")
-        self._btn_refresh = Button(pygame.Rect(rect.right - pad - 130,    rect.y + 84,  130, 36), "Refresh")
+        self._btn_game    = Button(pygame.Rect(rect.x + pad,              self._controls_y, 240, 36), "Game: all")
+        self._btn_outcome = Button(pygame.Rect(rect.x + pad + 252,        self._controls_y, 150, 36), "Outcome: all")
+        self._btn_range   = Button(pygame.Rect(rect.x + pad + 414,        self._controls_y, 160, 36), "Range: all")
+        self._btn_refresh = Button(pygame.Rect(rect.right - pad - 130,    self._controls_y, 130, 36), "Refresh")
  
     def _current_game_id(self) -> str: return self._games[self._game_idx][0]
     def _current_outcome(self) -> str: return self._outcomes[self._outcome_idx]
@@ -1052,9 +1061,11 @@ class MatchHistoryScreen:
             self._rows = ArrayList()
             for row in rows: self._rows.append(row)
             self._status = f"Loaded {len(self._rows)} matches"
+            self._row_scroll = 0
         except Exception as error:
             self._rows   = ArrayList()
             self._status = f"Load failed: {error}"
+            self._row_scroll = 0
  
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -1068,16 +1079,20 @@ class MatchHistoryScreen:
                 self._range_idx = (self._range_idx + 1) % len(self._ranges); self.refresh()
             elif self._btn_refresh.contains(event.pos):
                 self.refresh()
+        elif event.type == pygame.MOUSEWHEEL and self._table_box.collidepoint(pygame.mouse.get_pos()):
+            self._row_scroll = max(0, self._row_scroll - event.y * self._row_height)
  
     def update(self, dt: float) -> None:
-        pass
+        rows_view_height = max(0, self._table_box.height - self._header_height - 8)
+        max_scroll = max(0, len(self._rows) * self._row_height - rows_view_height)
+        self._row_scroll = min(self._row_scroll, max_scroll)
  
     def draw(self, surface: pygame.Surface) -> None:
         pygame.draw.rect(surface, COLORS["bg"], self.rect)
         title = TITLE_FONT.render("Match History", True, COLORS["accent"])
-        surface.blit(title, (self.rect.centerx - title.get_width() // 2, self.rect.y + 24))
+        surface.blit(title, title.get_rect(midtop=(self.rect.centerx, self._title_y)))
         sub = SMALL_FONT.render("Sorted by date (newest first). Filter by game, outcome, and date range.", True, COLORS["text_dim"])
-        surface.blit(sub, sub.get_rect(center=(self.rect.centerx, self.rect.y + 70)))
+        surface.blit(sub, sub.get_rect(midtop=(self.rect.centerx, self._subtitle_y)))
         game_name = self._games[self._game_idx][1]
         self._btn_game.label    = f"Game: {game_name}"
         self._btn_outcome.label = f"Outcome: {self._current_outcome()}"
@@ -1088,16 +1103,19 @@ class MatchHistoryScreen:
         self._btn_outcome.draw(surface, self._btn_outcome.contains(mp))
         self._btn_range.draw(surface,   self._btn_range.contains(mp))
         self._btn_refresh.draw(surface, self._btn_refresh.contains(mp))
-        surface.blit(SMALL_FONT.render(self._status, True, COLORS["text_dim"]), (self.rect.x + 24, self.rect.y + 128))
-        box = pygame.Rect(self.rect.x + 24, self.rect.y + 156, self.rect.width - 48, self.rect.height - 180)
+        surface.blit(SMALL_FONT.render(self._status, True, COLORS["text_dim"]), (self.rect.x + 24, self._status_y))
+        box = self._table_box
         pygame.draw.rect(surface, COLORS["panel"],  box, border_radius=10)
         pygame.draw.rect(surface, COLORS["border"], box, 1, border_radius=10)
         headers = ("Date", "Game", "Outcome", "Score", "Duration")
         hx      = (box.x + 14, box.x + 188, box.x + 388, box.x + 522, box.x + 618)
         for i, head in enumerate(headers):
             surface.blit(SMALL_FONT.render(head, True, COLORS["text_dim"]), (hx[i], box.y + 12))
-        y = box.y + 38
-        for i in range(min(18, len(self._rows))):
+        rows_view_rect = pygame.Rect(box.x + 8, box.y + self._header_height, box.width - 16, box.height - self._header_height - 8)
+        clip = surface.get_clip()
+        surface.set_clip(rows_view_rect)
+        y = rows_view_rect.y + 4 - self._row_scroll
+        for i in range(len(self._rows)):
             row        = self._rows[i]
             ended_at   = float(row.get("ended_at", 0.0))
             date_str   = time.strftime("%Y-%m-%d %H:%M", time.localtime(ended_at)) if ended_at > 0 else "-"
@@ -1111,7 +1129,8 @@ class MatchHistoryScreen:
             surface.blit(SMALL_FONT.render(outcome,   True, line_color),     (hx[2], y))
             surface.blit(SMALL_FONT.render(score,     True, COLORS["text"]), (hx[3], y))
             surface.blit(SMALL_FONT.render(duration,  True, COLORS["text"]), (hx[4], y))
-            y += 24
+            y += self._row_height
+        surface.set_clip(clip)
  
  
 # --- Leaderboard -----------------------------------------------------------
