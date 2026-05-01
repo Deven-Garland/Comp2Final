@@ -341,12 +341,12 @@ class ArcadeClient:
         self._game_stats.set_stats(game_name, stats)
         self._go_to(AppScreen.GAME_STATS)
 
-    def _load_history_data(self, game: str, outcome: str, start_date, end_date):
+    def _load_history_data(self, game: str, outcome: str, start_date, end_date, sort_by: str = "date"):
         rows = ArrayList()
         game_filter = None if game in (None, "", "all") else game
         history = self._conn.get_player_history_sorted(
             self._username,
-            sort_by="date",
+            sort_by=sort_by or "date",
             descending=True,
             game=game_filter,
             start_date=start_date,
