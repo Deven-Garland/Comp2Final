@@ -1,6 +1,6 @@
-game_id,game_name
-1,mennah
-2,deven
-3,ellie
-4,vraj
-5,kimberly
+game_id,game_name,team,genre
+1,mennah,Team Mennah,survival
+2,deven,Team Deven,platformer
+3,ellie,Team Ellie,strategy
+4,vraj,Team Vraj,arena
+5,kimberly,Team Kimberly,adventure

@@ -8,6 +8,7 @@ which matches the assignment requirement for large-scale query testing.
 import csv
 import random
 import time
+from datetime import datetime
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -17,6 +18,52 @@ DATASET_DIR = ROOT / "synthetic_dataset"
 PLAYERS_CSV = DATASET_DIR / "players.csv"
 SESSIONS_CSV = DATASET_DIR / "sessions.csv"
 GAMES_CSV = DATASET_DIR / "games.csv"
+
+
+def parse_int(value, default=None):
+    if value is None:
+        return default
+    text = str(value).strip()
+    if text == "" or text.lower() == "null":
+        return default
+    try:
+        return int(float(text))
+    except (TypeError, ValueError):
+        return default
+
+
+def parse_timestamp(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+
+    if text.isdigit():
+        try:
+            return datetime.fromtimestamp(int(text))
+        except (TypeError, ValueError, OSError):
+            return None
+
+    formats = (
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%d %H:%M:%S",
+        "%m/%d/%Y %I:%M:%S %p",
+        "%Y/%m/%d %H:%M",
+    )
+    for fmt in formats:
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def canonical_username(value):
+    name = (value or "").strip().lower()
+    if not name:
+        return ""
+    return "".join(ch for ch in name if ch.isalnum())
 
 
 @contextmanager
@@ -54,10 +101,12 @@ def load_players():
     with PLAYERS_CSV.open("r", newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
         for row in reader:
-            username = (row.get("username") or "").strip()
+            username = canonical_username(row.get("username"))
             if not username:
                 continue
-            player_id = int(row["player_id"])
+            player_id = parse_int(row.get("player_id"))
+            if player_id is None:
+                continue
             players[player_id] = username
     return players
 
@@ -67,25 +116,46 @@ def load_sessions():
     with SESSIONS_CSV.open("r", newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
         for row in reader:
-            try:
-                session = {
-                    "player_id": int(row["player_id"]),
-                    "game_id": int(row["game_id"]),
-                    "score": int(row["score"]),
-                    "duration": int(row["duration"]) if row["duration"] not in ("", None) else 0,
-                }
-            except (ValueError, TypeError):
+            player_id = parse_int(row.get("player_id"))
+            game_id = parse_int(row.get("game_id"))
+            if player_id is None or game_id is None:
                 continue
+
+            # Prefer explicit start/end timestamps if present, else fall back to legacy duration.
+            start_dt = parse_timestamp(row.get("start_time"))
+            end_dt = parse_timestamp(row.get("end_time"))
+            if start_dt and end_dt:
+                duration = int((end_dt - start_dt).total_seconds())
+            else:
+                duration = parse_int(row.get("duration"), 0)
+
+            session = {
+                "player_id": player_id,
+                "game_id": game_id,
+                "score": parse_int(row.get("score"), 0),
+                "duration": duration if duration is not None else 0,
+            }
             sessions.append(session)
     return sessions
 
 
 def main():
     # Import here so this script can run from data/ easily.
+    import os
     import sys
 
     project_root = ROOT.parent
     sys.path.insert(0, str(project_root))
+    # Standalone benchmark should not trigger server-startup CSV ingest (ARCADE_INGEST_*).
+    for _k in (
+        "ARCADE_INGEST_SYNTHETIC_CSV",
+        "ARCADE_INGEST_CSV_DIR",
+        "ARCADE_INGEST_MAX_PLAYERS",
+        "ARCADE_INGEST_MAX_SESSIONS",
+        "ARCADE_INGEST_MAX_CHAT",
+    ):
+        os.environ.pop(_k, None)
+
     from platform_server.server import PlatformServer
 
     print("Loading CSVs...")

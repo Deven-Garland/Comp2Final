@@ -1,11 +1,17 @@
 {
   "game_counters": {
     "deven:play_time": {
+      "player00064": 280,
       "Deven": 0,
+      "player00005": 9655,
       "gizmo": 1,
       "Deven1": 1,
+      "player00112": 4588,
       "mennah": 2,
-      "Deven2": 8
+      "player00090": 3633,
+      "player00146": 0,
+      "Deven2": 8,
+      "player00025": 3386
     },
     "ellie:chats": {
       "Deven": 7,
@@ -28,8 +34,11 @@
     },
     "mennah:sessions": {
       "Deven": 4,
+      "player00024": 2,
+      "player00078": 1,
       "gizmo": 2,
       "mennah": 2,
+      "player00004": 1,
       "Deven2": 3
     },
     "deven:disconnects": {
@@ -57,14 +66,26 @@
     },
     "ellie:sessions": {
       "Deven": 5,
-      "gizmo": 16,
+      "player00121": 1,
+      "player00005": 1,
+      "player00092": 1,
       "deven": 1,
       "mennah": 9,
+      "player00049": 1,
+      "player00075": 1,
+      "player00120": 1,
+      "player00060": 1,
+      "gizmo": 16,
+      "player00072": 1,
+      "player00124": 1,
+      "player00007": 1,
+      "player00102": 1,
       "Deven2": 4,
       "Damien": 1
     },
     "vraj:play_time": {
       "Deven": 2,
+      "player00010": 5913,
       "gizmo": 2,
       "mennah": 0,
       "Deven2": 3
@@ -74,17 +95,35 @@
     },
     "ellie:play_time": {
       "Deven": 2,
-      "gizmo": 6,
+      "player00121": 3038,
+      "player00005": 4730,
+      "player00092": 4842,
       "deven": 0,
       "mennah": 5,
+      "player00049": 1165,
+      "player00075": 0,
+      "player00120": 0,
+      "player00060": 4250,
+      "gizmo": 6,
+      "player00072": 2415,
+      "player00124": 1839,
+      "player00007": 0,
+      "player00102": 913,
       "Deven2": 4,
       "Damien": 1
     },
     "kimberly:play_time": {
       "Deven": 2,
+      "player00006": 1402,
+      "player00106": 0,
       "gizmo": 1,
+      "player00056": 2909,
+      "player00144": 19187,
+      "player00059": 2706,
+      "player00124": 6878,
       "mennah": 0,
-      "Deven2": 4
+      "Deven2": 4,
+      "player00044": 6946
     },
     "global:chats": {
       "Deven": 14,
@@ -96,19 +135,52 @@
       "Damien": 1
     },
     "global:sessions": {
-      "Deven": 21,
-      "gizmo": 27,
-      "Deven1": 3,
+      "player00121": 1,
+      "player00005": 3,
+      "player00092": 1,
+      "player00112": 1,
       "deven": 1,
-      "mennah": 18,
+      "player00146": 1,
+      "player00049": 1,
+      "player00075": 1,
+      "player00120": 1,
+      "player00006": 1,
+      "player00024": 2,
+      "player00078": 1,
+      "gizmo": 27,
+      "player00072": 1,
+      "player00059": 1,
+      "player00090": 1,
+      "player00007": 1,
       "Deven2": 20,
+      "player00025": 1,
+      "player00064": 1,
+      "Deven": 21,
+      "player00106": 1,
+      "Deven1": 3,
+      "mennah": 18,
+      "player00044": 1,
+      "player00010": 1,
+      "player00060": 1,
+      "player00144": 1,
+      "player00056": 1,
+      "player00124": 2,
+      "player00004": 1,
+      "player00102": 1,
       "Damien": 1
     },
     "kimberly:sessions": {
       "Deven": 3,
+      "player00006": 1,
+      "player00106": 1,
       "gizmo": 2,
+      "player00056": 1,
+      "player00144": 1,
+      "player00059": 1,
+      "player00124": 1,
       "mennah": 1,
-      "Deven2": 3
+      "Deven2": 3,
+      "player00044": 1
     },
     "1:chats": {
       "Deven": 1,
@@ -124,11 +196,17 @@
       "mennah": 4
     },
     "deven:sessions": {
+      "player00064": 1,
       "Deven": 7,
+      "player00005": 2,
       "gizmo": 4,
       "Deven1": 3,
+      "player00112": 1,
       "mennah": 5,
-      "Deven2": 7
+      "player00090": 1,
+      "player00146": 1,
+      "Deven2": 7,
+      "player00025": 1
     },
     "deven:chats": {
       "Deven": 6,
@@ -147,12 +225,16 @@
     },
     "mennah:play_time": {
       "Deven": 2,
+      "player00024": 1407,
+      "player00078": 0,
       "gizmo": 2,
       "mennah": 1,
+      "player00004": 6761,
       "Deven2": 4
     },
     "vraj:sessions": {
       "Deven": 2,
+      "player00010": 1,
       "gizmo": 3,
       "mennah": 1,
       "Deven2": 3
@@ -169,8 +251,11 @@
     },
     "mennah:sessions": {
       "Deven": 4,
+      "player00024": 2,
+      "player00078": 1,
       "gizmo": 2,
       "mennah": 2,
+      "player00004": 1,
       "Deven2": 3
     },
     "deven:disconnects": {
@@ -198,6 +283,7 @@
     },
     "vraj:play_time": {
       "Deven": 2,
+      "player00010": 5913,
       "gizmo": 2,
       "mennah": 0,
       "Deven2": 3
@@ -215,9 +301,16 @@
     },
     "kimberly:play_time": {
       "Deven": 2,
+      "player00006": 1402,
+      "player00106": 0,
       "gizmo": 1,
+      "player00056": 2909,
+      "player00144": 19187,
+      "player00059": 2706,
+      "player00124": 6878,
       "mennah": 0,
-      "Deven2": 4
+      "Deven2": 4,
+      "player00044": 6946
     },
     "global:chats": {
       "Deven": 14,
@@ -230,19 +323,32 @@
     },
     "kimberly:sessions": {
       "Deven": 3,
+      "player00006": 1,
+      "player00106": 1,
       "gizmo": 2,
+      "player00056": 1,
+      "player00144": 1,
+      "player00059": 1,
+      "player00124": 1,
       "mennah": 1,
-      "Deven2": 3
+      "Deven2": 3,
+      "player00044": 1
     },
     "kimberly:chats": {
       "gizmo": 1
     },
     "deven:sessions": {
+      "player00064": 1,
       "Deven": 7,
+      "player00005": 2,
       "gizmo": 4,
       "Deven1": 3,
+      "player00112": 1,
       "mennah": 5,
-      "Deven2": 7
+      "player00090": 1,
+      "player00146": 1,
+      "Deven2": 7,
+      "player00025": 1
     },
     "deven:chats": {
       "Deven": 6,
@@ -253,13 +359,20 @@
       "Deven2": 101
     },
     "deven:score": {
+      "player00064": 3187,
+      "player00005": 3968,
       "Deven1": 0,
       "gizmo": 0,
+      "player00112": 3096,
       "mennah": 0,
-      "Deven2": 0
+      "player00090": 4925,
+      "player00146": 0,
+      "Deven2": 0,
+      "player00025": 0
     },
     "vraj:sessions": {
       "Deven": 2,
+      "player00010": 1,
       "gizmo": 3,
       "mennah": 1,
       "Deven2": 3
@@ -272,14 +385,21 @@
       "Damien": 1
     },
     "deven:play_time": {
+      "player00064": 280,
       "Deven": 0,
+      "player00005": 9655,
       "gizmo": 1,
       "Deven1": 1,
+      "player00112": 4588,
       "mennah": 2,
-      "Deven2": 8
+      "player00090": 3633,
+      "player00146": 0,
+      "Deven2": 8,
+      "player00025": 3386
     },
     "vraj:score": {
       "Deven": 0,
+      "player00010": 2006,
       "gizmo": 0,
       "Deven2": 0
     },
@@ -292,33 +412,84 @@
     },
     "ellie:sessions": {
       "Deven": 5,
-      "gizmo": 16,
+      "player00121": 1,
+      "player00005": 1,
+      "player00092": 1,
       "deven": 1,
       "mennah": 9,
+      "player00049": 1,
+      "player00075": 1,
+      "player00120": 1,
+      "player00060": 1,
+      "gizmo": 16,
+      "player00072": 1,
+      "player00124": 1,
+      "player00007": 1,
+      "player00102": 1,
       "Deven2": 4,
       "Damien": 1
     },
     "ellie:play_time": {
       "Deven": 2,
-      "gizmo": 6,
+      "player00121": 3038,
+      "player00005": 4730,
+      "player00092": 4842,
       "deven": 0,
       "mennah": 5,
+      "player00049": 1165,
+      "player00075": 0,
+      "player00120": 0,
+      "player00060": 4250,
+      "gizmo": 6,
+      "player00072": 2415,
+      "player00124": 1839,
+      "player00007": 0,
+      "player00102": 913,
       "Deven2": 4,
       "Damien": 1
     },
     "mennah:score": {
       "Deven": 0,
+      "player00024": 283,
+      "player00078": 414,
       "gizmo": 0,
       "mennah": 0,
+      "player00004": 4700,
       "Deven2": 0
     },
     "global:sessions": {
-      "Deven": 21,
-      "gizmo": 27,
-      "Deven1": 3,
+      "player00121": 1,
+      "player00005": 3,
+      "player00092": 1,
+      "player00112": 1,
       "deven": 1,
-      "mennah": 18,
+      "player00146": 1,
+      "player00049": 1,
+      "player00075": 1,
+      "player00120": 1,
+      "player00006": 1,
+      "player00024": 2,
+      "player00078": 1,
+      "gizmo": 27,
+      "player00072": 1,
+      "player00059": 1,
+      "player00090": 1,
+      "player00007": 1,
       "Deven2": 20,
+      "player00025": 1,
+      "player00064": 1,
+      "Deven": 21,
+      "player00106": 1,
+      "Deven1": 3,
+      "mennah": 18,
+      "player00044": 1,
+      "player00010": 1,
+      "player00060": 1,
+      "player00144": 1,
+      "player00056": 1,
+      "player00124": 2,
+      "player00004": 1,
+      "player00102": 1,
       "Damien": 1
     },
     "1:chats": {
@@ -333,8 +504,19 @@
     },
     "ellie:score": {
       "Deven": 0,
-      "gizmo": 0,
+      "player00121": 4949,
+      "player00092": 2662,
+      "player00005": 3999,
       "mennah": 0,
+      "player00049": 0,
+      "player00075": 1043,
+      "player00120": 109,
+      "player00060": 4569,
+      "gizmo": 0,
+      "player00072": 712,
+      "player00124": 4144,
+      "player00007": 889,
+      "player00102": 2590,
       "Deven2": 0,
       "Damien": 0
     },
@@ -347,14 +529,24 @@
     },
     "mennah:play_time": {
       "Deven": 2,
+      "player00024": 1407,
+      "player00078": 0,
       "gizmo": 2,
       "mennah": 1,
+      "player00004": 6761,
       "Deven2": 4
     },
     "kimberly:score": {
       "Deven": 0,
+      "player00006": 2052,
+      "player00106": 1759,
       "gizmo": 0,
-      "Deven2": 0
+      "player00056": 1429,
+      "player00144": 3156,
+      "player00059": 0,
+      "player00124": 684,
+      "Deven2": 0,
+      "player00044": 3583
     },
     "mennah:chats": {
       "gizmo": 1

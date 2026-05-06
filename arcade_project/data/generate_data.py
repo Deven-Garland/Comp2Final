@@ -1,126 +1,195 @@
-import random
 import csv
+import random
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
 
 # --------------------------
-# SETTINGS (adjust if needed)
+# SETTINGS
 # --------------------------
 NUM_PLAYERS = 10000
 NUM_SESSIONS = 100000
 NUM_CHATS = 50000
-NUM_GAMES = 120
+RANDOM_SEED = 3822
 
-PLAYER_FILE = "../data/synthetic_dataset/players.csv"
-SESSION_FILE = "../data/synthetic_dataset/sessions.csv"
-CHAT_FILE = "../data/synthetic_dataset/chat.csv"
-GAME_FILE = "../data/synthetic_dataset/games.csv"
+DATASET_DIR = Path(__file__).resolve().parent / "synthetic_dataset"
+PLAYER_FILE = DATASET_DIR / "players.csv"
+SESSION_FILE = DATASET_DIR / "sessions.csv"
+CHAT_FILE = DATASET_DIR / "chat.csv"
+GAME_FILE = DATASET_DIR / "games.csv"
 
+TEAM_GAMES = [
+    (1, "mennah", "Team Mennah", "survival"),
+    (2, "deven", "Team Deven", "platformer"),
+    (3, "ellie", "Team Ellie", "strategy"),
+    (4, "vraj", "Team Vraj", "arena"),
+    (5, "kimberly", "Team Kimberly", "adventure"),
+]
 
-# --------------------------
-# PLAYERS
-# --------------------------
-def generate_players():
-    rows = [["player_id", "username", "level"]]
+COUNTRIES = [
+    "US",
+    "CA",
+    "MX",
+    "BR",
+    "GB",
+    "DE",
+    "IN",
+    "JP",
+    "KR",
+    "AU",
+]
 
-    for i in range(1, NUM_PLAYERS + 1):
-        username = f"Player{i}"
-
-        # messy data
-        r = random.random()
-        if r < 0.03:
-            username = ""  # missing
-        elif r < 0.06:
-            username = f"Player{random.randint(1, NUM_PLAYERS)}"  # duplicate
-
-        level = random.randint(1, 100)
-
-        rows.append([i, username, level])
-
-    with open(PLAYER_FILE, "w", newline="") as f:
-        csv.writer(f).writerows(rows)
-
-
-# --------------------------
-# SESSIONS
-# --------------------------
-def generate_sessions():
-    rows = [["session_id", "player_id", "game_id", "score", "duration"]]
-
-    for i in range(1, NUM_SESSIONS + 1):
-        player_id = random.randint(1, NUM_PLAYERS)
-        game_id = random.randint(1, NUM_GAMES)
-
-        # messy score
-        score = random.randint(0, 1000)
-        if random.random() < 0.05:
-            score = -score
-
-        # messy duration
-        duration = random.randint(10, 500)
-        if random.random() < 0.05:
-            duration = ""
-
-        rows.append([i, player_id, game_id, score, duration])
-
-    with open(SESSION_FILE, "w", newline="") as f:
-        csv.writer(f).writerows(rows)
+CHAT_MESSAGES = [
+    "gg",
+    "nice play",
+    "that was close",
+    "lag spike",
+    "need backup",
+    "omw",
+    "bruh",
+    "good round",
+    "where are you",
+    "clutch",
+]
 
 
-# --------------------------
-# CHAT MESSAGES (NEW 🔥)
-# --------------------------
-def generate_chat():
-    rows = [["chat_id", "player_id", "game_id", "message"]]
+def _random_datetime_within_last_year():
+    now = datetime.now(timezone.utc)
+    delta_seconds = random.randint(0, 365 * 24 * 60 * 60)
+    return now - timedelta(seconds=delta_seconds)
 
-    sample_messages = [
-        "gg", "nice", "lol", "wow", "no way", "help", "go go go",
-        "that was close", "what happened", "lag", "bruh"
+
+def _format_timestamp_messy(ts):
+    formats = [
+        ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        ts.strftime("%Y-%m-%d %H:%M:%S"),
+        ts.strftime("%m/%d/%Y %I:%M:%S %p"),
+        ts.strftime("%Y/%m/%d %H:%M"),
+        str(int(ts.timestamp())),
     ]
+    return random.choice(formats)
 
-    for i in range(1, NUM_CHATS + 1):
+
+def _name_variation(name):
+    options = [
+        name.lower(),
+        name.upper(),
+        name.replace("_", ""),
+        name + "_1",
+        name + "x",
+        name + ".",
+        name.replace("player", "plyr"),
+    ]
+    return random.choice(options)
+
+
+def generate_players():
+    rows = [["player_id", "username", "display_name", "country", "level", "created_at"]]
+
+    for player_id in range(1, NUM_PLAYERS + 1):
+        username = f"player{player_id:05d}"
+        display_name = f"Player {player_id}"
+        country = random.choice(COUNTRIES)
+        level = random.randint(1, 100)
+        created_at = _format_timestamp_messy(_random_datetime_within_last_year())
+
+        r = random.random()
+        if r < 0.04:
+            display_name = ""  # missing display name
+        elif r < 0.08:
+            country = ""  # missing country
+        elif r < 0.11 and player_id > 1:
+            # duplicate-ish username with slight variation
+            source_id = random.randint(1, player_id - 1)
+            username = _name_variation(f"player{source_id:05d}")
+            display_name = _name_variation(f"Player_{source_id}")
+
+        rows.append([player_id, username, display_name, country, level, created_at])
+
+    with PLAYER_FILE.open("w", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerows(rows)
+
+
+def generate_sessions():
+    rows = [["session_id", "player_id", "game_id", "start_time", "end_time", "score"]]
+
+    game_ids = [game_id for game_id, _, _, _ in TEAM_GAMES]
+    for session_id in range(1, NUM_SESSIONS + 1):
         player_id = random.randint(1, NUM_PLAYERS)
-        game_id = random.randint(1, NUM_GAMES)
+        game_id = random.choice(game_ids)
+        start_time = _random_datetime_within_last_year()
+        duration_seconds = random.randint(60, 2 * 60 * 60)
+        end_time = start_time + timedelta(seconds=duration_seconds)
+        score = random.randint(0, 5000)
 
-        msg = random.choice(sample_messages)
+        score_roll = random.random()
+        if score_roll < 0.04:
+            score = ""  # null-ish score
+        elif score_roll < 0.07:
+            score = "null"
+        elif score_roll < 0.11:
+            score = -score  # negative score
 
-        # messy data
+        end_time_value = _format_timestamp_messy(end_time)
+        if random.random() < 0.06:
+            end_time_value = ""  # missing end time
+
+        rows.append(
+            [
+                session_id,
+                player_id,
+                game_id,
+                _format_timestamp_messy(start_time),
+                end_time_value,
+                score,
+            ]
+        )
+
+    with SESSION_FILE.open("w", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerows(rows)
+
+
+def generate_chat():
+    rows = [["chat_id", "session_id", "player_id", "game_id", "message", "sent_at"]]
+
+    for chat_id in range(1, NUM_CHATS + 1):
+        session_id = random.randint(1, NUM_SESSIONS)
+        player_id = random.randint(1, NUM_PLAYERS)
+        game_id = random.choice([game[0] for game in TEAM_GAMES])
+        message = random.choice(CHAT_MESSAGES)
+        sent_at = _format_timestamp_messy(_random_datetime_within_last_year())
+
         if random.random() < 0.03:
-            msg = ""
+            message = ""  # missing message text
+        if random.random() < 0.02:
+            sent_at = ""  # missing timestamp
 
-        rows.append([i, player_id, game_id, msg])
+        rows.append([chat_id, session_id, player_id, game_id, message, sent_at])
 
-    with open(CHAT_FILE, "w", newline="") as f:
+    with CHAT_FILE.open("w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerows(rows)
 
 
-# --------------------------
-# GAMES (FIXED 🔥)
-# --------------------------
 def generate_games():
-    rows = [["game_id", "game_name"]]
+    rows = [["game_id", "game_name", "team", "genre"]]
+    for game_id, game_name, team, genre in TEAM_GAMES:
+        rows.append([game_id, game_name, team, genre])
 
-    for i in range(1, NUM_GAMES + 1):
-        rows.append([i, f"Game_{i}"])
-
-    with open(GAME_FILE, "w", newline="") as f:
+    with GAME_FILE.open("w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerows(rows)
 
 
-# --------------------------
-# MAIN
-# --------------------------
 if __name__ == "__main__":
-    print("Generating dataset...")
+    random.seed(RANDOM_SEED)
+    DATASET_DIR.mkdir(parents=True, exist_ok=True)
 
+    print("Generating synthetic dataset...")
     generate_players()
-    print("Players done")
-
+    print("players.csv done")
     generate_sessions()
-    print("Sessions done")
-
+    print("sessions.csv done")
     generate_chat()
-    print("Chat done")
-
+    print("chat.csv done")
     generate_games()
-    print("Games done")
-
-    print("All data generated successfully")
+    print("games.csv done")
+    print("All dataset files generated.")

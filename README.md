@@ -52,10 +52,38 @@ arcade_project/
 │   └── test_load.py                   # Stress + complexity benchmarks
 │
 └── data/
-    └── synthetic_dataset/             # CSV files (10,000+ players, 100,000+ sessions)
+    └── synthetic_dataset/             # CSV files (10,000+ players, 100,000+ sessions, 50,000+ chats, game catalog)
 ```
 
-## Running the Arcade (Exact Working Steps)
+### Loading CSV data into the platform server
+
+By default, `platform_server/data_ingest.py` **does not read** those CSV files (it registers three demo users only). Benchmark-style testing without starting the TCP server continues to use `arcade_project/data/benchmark_platform_from_csv.py`.
+
+To actually **ingest CSVs into the live platform server** (accounts, match history rows, leaderboard counters—and optional sampled chat):
+
+```powershell
+cd C:\Users\deven\ece3822-spring-assignments\Comp2Final
+$env:ARCADE_INGEST_SYNTHETIC_CSV="1"
+# Recommended for a quick test (full files are large and slow on first startup):
+$env:ARCADE_INGEST_MAX_PLAYERS="2000"
+$env:ARCADE_INGEST_MAX_SESSIONS="3000"
+# Optional: `$env:ARCADE_INGEST_CSV_DIR="C:\path\to\synthetic_dataset"`
+# Synthetic users log in with password from `$env:ARCADE_SYNTHETIC_PASSWORD` (default `synthetic`)
+python .\platform_runner.py
+```
+
+After a bulk ingest you may merge with older `leaderboard_data.json` / `runtime_state.json` data unless you archive those files for a clean test.
+
+### Offline synthetic dataset test (no server)
+
+From the `arcade_project` folder, this loads CSVs into an **in-memory** `PlatformServer`, replays sessions, and runs the query benchmark (no TCP):
+
+```powershell
+cd C:\Users\deven\ece3822-spring-assignments\Comp2Final\arcade_project
+python .\platform_server\data_ingest.py
+```
+
+Equivalent script: `arcade_project/data/benchmark_platform_from_csv.py`.## Running the Arcade (Exact Working Steps)
 
 This is the exact two-port setup that works for this repo:
 

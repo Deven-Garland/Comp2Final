@@ -108,25 +108,20 @@ class PlatformServer:
         self.game_counters = HashTable()
 
         self.data_ingest = DataIngest(self.accounts, self.leaderboard, self.catalog)
-        self.data_ingest.load_data()
+        ingest_syn = os.getenv("ARCADE_INGEST_SYNTHETIC_CSV", "").strip().lower() in ("1", "true", "yes")
+        if not ingest_syn:
+            self.data_ingest.load_data()
+
         self._leaderboards_loaded_from_file = self._load_leaderboard_state()
         self._ratings_loaded_from_file = self._load_ratings_state()
         self._load_runtime_state()
 
-        # Build player search index from all loaded accounts
         self.player_search = PlayerSearch()
-        for username in self.accounts.accounts:
-            account = self.accounts.get_account(username)
-            if account:
-                profile = HashTable()
-                profile["name"] = account.username
-                profile["total_play_time"] = account.minutes_played
-                profile["games_played"] = 0
-                profile["win_rate"] = 0.0
-                profile["favorite_game"] = account.favorite_game
-                profile["messages_sent"] = account.messages_sent
-                profile["avatar"] = int(getattr(account, "avatar", 1) or 1)
-                self.player_search.register(username, username, profile)
+        self._rebuild_player_search_from_accounts()
+
+        if ingest_syn:
+            self.data_ingest.load_data(self)
+            self._rebuild_player_search_from_accounts()
 
     def _sync_player_search_profile(self, username):
         """Refresh one player's searchable profile from account data."""
@@ -142,6 +137,12 @@ class PlatformServer:
         profile["messages_sent"] = account.messages_sent
         profile["avatar"] = int(getattr(account, "avatar", 1) or 1)
         self.player_search.register(username, username, profile)
+
+    def _rebuild_player_search_from_accounts(self) -> None:
+        """Rebuild prefix search index from the current Accounts table (e.g. after synthetic CSV ingest)."""
+        self.player_search = PlayerSearch()
+        for username in self.accounts.accounts:
+            self._sync_player_search_profile(username)
 
     def _serialize_game_counters(self):
         data = HashTable()
