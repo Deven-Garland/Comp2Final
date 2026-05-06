@@ -1,11 +1,13 @@
 """
 Benchmark core platform-server query performance using synthetic CSV data.
 
-This tests platform data-structure/query speed directly (no network),
-which matches the assignment requirement for large-scale query testing.
+Runs entirely offline: constructs PlatformServer in-process only. No TCP listener,
+no client sockets, no SSH tunnel, and no connection to platform_runner.py.
+(Optionally skips writing JSON state when ARCADE_OFFLINE_BENCHMARK_NO_DISK=1.)
 """
 
 import csv
+import os
 import random
 import time
 from datetime import datetime
@@ -18,6 +20,17 @@ DATASET_DIR = ROOT / "synthetic_dataset"
 PLAYERS_CSV = DATASET_DIR / "players.csv"
 SESSIONS_CSV = DATASET_DIR / "sessions.csv"
 GAMES_CSV = DATASET_DIR / "games.csv"
+
+
+def _env_positive_int(name: str, default=None):
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        v = int(raw)
+        return v if v > 0 else default
+    except ValueError:
+        return default
 
 
 def parse_int(value, default=None):
@@ -70,7 +83,8 @@ def canonical_username(value):
 def suspend_persistence(server):
     """
     Temporarily disable expensive JSON saves while bulk-loading benchmark data.
-    Restores original behavior and flushes once at the end.
+    Restores original save hooks; when ARCADE_OFFLINE_BENCHMARK_NO_DISK is truthy,
+    skips the final accounts/runtime flush (default for data_ingest.py entry point).
     """
     original_runtime_save = server._save_runtime_state
     original_accounts_save = server.accounts._save
@@ -81,9 +95,14 @@ def suspend_persistence(server):
     finally:
         server._save_runtime_state = original_runtime_save
         server.accounts._save = original_accounts_save
-        # Persist once so benchmark runs still leave valid state files.
-        server.accounts._save()
-        server._save_runtime_state()
+        nodisk = os.environ.get("ARCADE_OFFLINE_BENCHMARK_NO_DISK", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if not nodisk:
+            server.accounts._save()
+            server._save_runtime_state()
 
 
 def load_game_map():
@@ -166,6 +185,11 @@ def main():
     print(f"Loaded sessions: {len(sessions)}")
     print(f"Loaded games: {len(game_map)}")
 
+    cap = _env_positive_int("ARCADE_BENCHMARK_MAX_SESSIONS")
+    if cap is not None and cap < len(sessions):
+        sessions = sessions[:cap]
+        print(f"Capped sessions to {cap} (ARCADE_BENCHMARK_MAX_SESSIONS)")
+
     server = PlatformServer(players_per_match=2, game_servers=[])
 
     usernames = list(set(players_by_id.values()))
@@ -198,7 +222,7 @@ def main():
     query_stats = ["score", "play_time", "sessions"]
 
     # Timed query batch (simulates many lookups).
-    total_queries = 100000
+    total_queries = _env_positive_int("ARCADE_BENCHMARK_MAX_QUERIES", 100000)
     print(f"Running {total_queries} mixed queries...")
     query_start = time.perf_counter()
     for _ in range(total_queries):

@@ -6,7 +6,14 @@ Offline project test (no TCP server — in-memory PlatformServer only):
   cd arcade_project
   python platform_server/data_ingest.py
 
+Uses modest caps by default so it finishes on a laptop; for the full CSV + 100000 queries:
+
+  set ARCADE_BENCHMARK_MAX_SESSIONS=
+  set ARCADE_BENCHMARK_MAX_QUERIES=
+  (empty removes cap / use benchmark defaults — see arcade_project/data/benchmark_platform_from_csv.py)
+
 That runs the CSV load + query simulation in data/benchmark_platform_from_csv.py.
+The benchmark skips writing accounts/runtime JSON unless you set ARCADE_OFFLINE_BENCHMARK_NO_DISK=0.
 
 Default (no env): registers three demo users — CSVs are NOT read.
 
@@ -373,6 +380,7 @@ def run_standalone_synthetic_benchmark() -> None:
     keys.append("ARCADE_INGEST_MAX_PLAYERS")
     keys.append("ARCADE_INGEST_MAX_SESSIONS")
     keys.append("ARCADE_INGEST_MAX_CHAT")
+    keys.append("ARCADE_OFFLINE_BENCHMARK_NO_DISK")
 
     saved = HashTable()
     i = 0
@@ -385,6 +393,10 @@ def run_standalone_synthetic_benchmark() -> None:
 
     try:
         bench_path = root / "data" / "benchmark_platform_from_csv.py"
+        # Pure offline grading run: no final writes to accounts_data.json / runtime_state.json.
+        if "ARCADE_OFFLINE_BENCHMARK_NO_DISK" not in os.environ:
+            os.environ["ARCADE_OFFLINE_BENCHMARK_NO_DISK"] = "1"
+
         if not bench_path.is_file():
             print(f"[data_ingest] Benchmark script not found: {bench_path}")
             return
@@ -402,4 +414,16 @@ def run_standalone_synthetic_benchmark() -> None:
 
 if __name__ == "__main__":
     print("Synthetic dataset offline test (in-memory platform; no TCP).")
-    run_standalone_synthetic_benchmark()
+    # Unless you export ARCADE_BENCHMARK_* yourself, keep a shorter run for a normal laptop.
+    lite_keys = HashTable()
+    if "ARCADE_BENCHMARK_MAX_SESSIONS" not in os.environ:
+        os.environ["ARCADE_BENCHMARK_MAX_SESSIONS"] = "12000"
+        lite_keys["ARCADE_BENCHMARK_MAX_SESSIONS"] = True
+    if "ARCADE_BENCHMARK_MAX_QUERIES" not in os.environ:
+        os.environ["ARCADE_BENCHMARK_MAX_QUERIES"] = "8000"
+        lite_keys["ARCADE_BENCHMARK_MAX_QUERIES"] = True
+    try:
+        run_standalone_synthetic_benchmark()
+    finally:
+        for k in lite_keys:
+            os.environ.pop(k, None)

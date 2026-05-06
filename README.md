@@ -11,55 +11,115 @@ This is the GitHub repository for Team MOSFET's Computation 2 final project.
 
 ## Project Structure
 
+```text
+
 ```
-arcade_project/
-│
-├── client.py                          # Run this to launch the arcade client
-│
-├── client/
-│   ├── arcade_client.py               # Central client class + game loop
-│   ├── screens.py                     # All UI screens (Login, Browser, Game, Chat)
-│   └── connection.py                  # TCP socket wrappers for both servers
-│
-├── platform_server/
-│   ├── server.py                      # Python platform server entry point
-│   ├── accounts.py                    # Player auth (HashTable + BloomFilter)
-│   ├── leaderboard.py                 # Score management (BST)
-│   ├── chat.py                        # Chat message routing
-│   ├── matchmaking.py                 # Waiting queue (MinHeap)
-│   └── data_ingest.py                 # Synthetic dataset loader
-│
-├── datastructures/
-│   ├── hash_table.py                  # Custom hash table with chaining
-│   ├── bst.py                         # Binary search tree
-│   ├── heap.py                        # Min-heap / priority queue
-│   ├── bloom_filter.py                # Bloom filter
-│   ├── graph.py                       # Directed weighted graph
-│   └── sparse_matrix.py              # Sparse matrix (CSR format)
-│
-├── games/
-│   ├── deven_game/game.py
-│   ├── ellie_game/game.py
-│   ├── kimberly_game/game.py
-│   ├── mennah_game/game.py
-│   └── vraj_game/game.py
-│
-├── cpp_server/                        # C++ game server (separate build)
-│
-├── tests/
-│   ├── test_hash_table.py
-│   ├── test_bst.py
-│   └── test_load.py                   # Stress + complexity benchmarks
-│
-└── data/
-    └── synthetic_dataset/             # CSV files (10,000+ players, 100,000+ sessions, 50,000+ chats, game catalog)
+Comp2Final/
+├─ README.md
+├─ AI-WriteUp.txt
+├─ client.py
+└─ arcade_project/
+   ├─ client/
+   │  ├─ __init__.py
+   │  ├─ arcade_client.py
+   │  ├─ connection.py
+   │  └─ screens.py
+   │
+   ├─ platform_server/
+   │  ├─ __init__.py
+   │  ├─ server.py
+   │  ├─ data_ingest.py
+   │  ├─ accounts.py
+   │  ├─ leaderboard.py
+   │  ├─ history.py
+   │  ├─ chat.py
+   │  ├─ matchmaking.py
+   │  ├─ ratings.py
+   │  ├─ player_search.py
+   │  ├─ playerstats.py
+   │  ├─ catalog.py
+   │  ├─ API.md
+   │  ├─ accounts_data.json
+   │  ├─ leaderboard_data.json
+   │  ├─ ratings_data.json
+   │  ├─ runtime_state.json
+   │  └─ test_chat.py
+   │
+   ├─ datastructures/
+   │  ├─ __init__.py
+   │  ├─ array.py
+   │  ├─ hash_table.py
+   │  ├─ linked_list.py
+   │  ├─ node.py
+   │  ├─ bst.py
+   │  ├─ heap.py
+   │  ├─ bloom_filter.py
+   │  ├─ graph.py
+   │  ├─ sparse_matrix.py
+   │  ├─ sorting.py
+   │  ├─ circular_buffer.py
+   │  ├─ stack.py
+   │  └─ tests/
+   │     ├─ test_hash_table.py
+   │     ├─ test_BST.py
+   │     ├─ test_heap.py
+   │     ├─ test_graph.py
+   │     └─ test_bloom_filter.py
+   │
+   ├─ data/
+   │  ├─ generate_data.py
+   │  ├─ benchmark_platform_from_csv.py
+   │  └─ synthetic_dataset/
+   │     ├─ players.csv
+   │     ├─ sessions.csv
+   │     ├─ chat.csv
+   │     └─ games.csv
+   │
+   ├─ cpp_server/
+     ├─ Makefile
+     ├─ README.md
+     ├─ start_team_servers.sh
+     ├─ test_serializers.sh
+     ├─ include/
+     │  ├─ player.h
+     │  ├─ serializer.h
+    │  ├─ text_serializer.h
+     │  ├─ json_serializer.h
+     │  ├─ binary_serializer.h
+     │  ├─ game_instance.h
+     │  ├─ circular_buffer.h
+     │  └─ position_smoother.h
+     └─ src/
+        ├─ server.cpp
+        ├─ player.cpp
+        ├─ text_serializer.cpp
+        ├─ json_serializer.cpp
+        └─ binary_serializer.cpp
+
+## Offline testing (coursework / grading — no live server)
+
+All **dataset load and query benchmarks** run without networking: no `platform_runner.py`, no SSH tunnel, no C++ game server, and no listening TCP socket. The platform is built in-process only.
+
+From `arcade_project`:
+
+```powershell
+cd C:\Users\deven\ece3822-spring-assignments\Comp2Final\arcade_project
+python .\platform_server\data_ingest.py
 ```
 
-### Loading CSV data into the platform server
+That entry point delegates to `data/benchmark_platform_from_csv.py` (you can also run that file directly). By default it uses modest row/query caps for a quick laptop run; clear `ARCADE_BENCHMARK_MAX_SESSIONS` and `ARCADE_BENCHMARK_MAX_QUERIES` to run the full synthetic workload (see comments in `benchmark_platform_from_csv.py`).
 
-By default, `platform_server/data_ingest.py` **does not read** those CSV files (it registers three demo users only). Benchmark-style testing without starting the TCP server continues to use `arcade_project/data/benchmark_platform_from_csv.py`.
+Offline runs default to **no final write** of `accounts_data.json` / `runtime_state.json` (`ARCADE_OFFLINE_BENCHMARK_NO_DISK=1`). Set that variable to `0` if you want those files updated after a benchmark.
 
-To actually **ingest CSVs into the live platform server** (accounts, match history rows, leaderboard counters—and optional sampled chat):
+**Unit tests** (also offline): from `arcade_project`, run pytest on `datastructures/tests/` (for example `pytest datastructures/tests`).
+
+### Optional: ingest CSVs into the **live** TCP platform server
+
+This path is only for demos or integration with real clients—not required for graded offline testing.
+
+By default `platform_server/data_ingest.py` in `__main__` runs the **offline** benchmark above; it does **not** attach to a listening server.
+
+To preload CSV rows when you start **`platform_runner.py`** (accounts, history, leaderboard, optional chat sample):
 
 ```powershell
 cd C:\Users\deven\ece3822-spring-assignments\Comp2Final
@@ -74,16 +134,7 @@ python .\platform_runner.py
 
 After a bulk ingest you may merge with older `leaderboard_data.json` / `runtime_state.json` data unless you archive those files for a clean test.
 
-### Offline synthetic dataset test (no server)
-
-From the `arcade_project` folder, this loads CSVs into an **in-memory** `PlatformServer`, replays sessions, and runs the query benchmark (no TCP):
-
-```powershell
-cd C:\Users\deven\ece3822-spring-assignments\Comp2Final\arcade_project
-python .\platform_server\data_ingest.py
-```
-
-Equivalent script: `arcade_project/data/benchmark_platform_from_csv.py`.## Running the Arcade (Exact Working Steps)
+## Running the Arcade (Exact Working Steps)
 
 This is the exact two-port setup that works for this repo:
 
@@ -176,36 +227,6 @@ pkill -f server_text
 - Chat works but game says disconnected:
   - Platform tunnel is fine, but gameplay port mismatch.
   - Ensure `ARCADE_GAME_PORT=18080` before running `client.py`.
-
-## Generating the UML Diagram with pyreverse
-
-Install pylint (includes pyreverse):
-
-```bash
-pip install pylint
-```
-
-Run from the project root to generate a UML PNG of the Python client:
-
-```bash
-pyreverse -o png -p ArcadeClient client/ platform_server/ datastructures/
-```
-
-This outputs `classes_ArcadeClient.png` — insert this image into Section 2.2 of the design doc.
-
-To generate just the client classes:
-
-```bash
-pyreverse -o png -p Client client/
-```
-
-To generate just the data structures:
-
-```bash
-pyreverse -o png -p DataStructures datastructures/
-```
-
----
 
 ## GitHub
 https://github.com/Deven-Garland/Comp2Final
