@@ -1,186 +1,299 @@
-AI Conversations Log
+# AI Conversations Log
 
-Use this file to document any AI tools (ChatGPT, Claude, Copilot, Cursor Agent / Composer, etc.) you used while working on this project.
+This file will document any AI tools (ChatGPT, Claude, Copilot, Cursor Agent / Composer, etc.) you used while working on this project.
 
-For each conversation, include:
+For each conversation we will include:
+- What we asked.
+- What it gave us.
+- What we actually used.
 
-  • What you asked — the prompt or question you gave the AI
+Links: Each team member used different AI's for many different instances so providing a single link was not possible. This is a write up of team wide chats that were sent to all AI tools.
 
-  • What it gave me — a summary of the response
+---
 
-  • What I actually used — did you use it as-is, modify it, or decide not to use it? Why?
+## Earlier Cursor Sessions (Project-Wide)
 
+---
 
-LINK (optional — paste a share URL if your tool provides one):
+### Conversation 1
+**Tool used:** Cursor (Agent)
 
-  [Add link here if you export/share your Cursor or other chat transcript]
+**What we asked:** Pasted the assignment dataset spec and asked if we had covered everything — the 10k+ players, 100k+ sessions, chat data, messy real-world-style stuff.
 
+**What it gave us:** Basically a checklist of what we had vs what we were missing. Pointed out missing columns, empty files, things that would break during parsing. Pretty useful audit.
 
-──────────────────────────────────────────────────────────────
-Earlier Cursor sessions (project-wide)
-──────────────────────────────────────────────────────────────
+**What we actually used:** Used it as a to-do list. Didn't copy anything into the actual submission, just used it to figure out what still needed to get done.
 
+---
 
-Conversation 1
-Tool used: Cursor (Agent)
+### Conversation 2
+**Tool used:** Cursor (Agent)
 
-What I asked: Have we taken care of this? [Pasted the assignment dataset spec: 10k+ messy players, 100k+ messy sessions, 50k+ chat linked to games/players, class game catalog, noisy real-world-style data, system must handle gracefully.]
+**What we asked:** Told it we had an extra folder from another group mixed in and needed everything scoped under arcade_project. Also asked for help writing the AI disclosure section for a new file.
 
-What it gave me: A repo audit comparing rubric wording to what existed in the tree: expected row counts and file presence (e.g. chat.csv), schema expectations (display_name, country, timestamps), and whether the generator/benchmark pipeline could satisfy “messy but loadable” data. It listed concrete gaps (missing columns, empty files, fragile assumptions) rather than only high-level advice.
+**What it gave us:** Cleaned up edits under arcade_project/, fixed up the data generator and benchmark script, and gave a draft for the AI disclosure.
 
-What I actually used: I treated the output as a prioritized checklist (fix generator coverage, harden CSV parsing in the benchmark, align README with what we actually ship). I did not copy prose into graded write-ups verbatim; I verified claims against git and running scripts before counting something as “done.”
+**What we actually used:** Kept the generator and benchmark changes. Rewrote the disclosure text ourselves since we wanted it to match the actual conversations we had.
 
+---
 
-Conversation 2
-Tool used: Cursor (Agent)
+### Conversation 3
+**Tool used:** Cursor (Agent)
 
-What I asked: Redo that — I had an extra folder from another group — make the updates under arcade_project. Also give me a realistic AI write-up for the new file I added.
+**What we asked:** Listed all the extra credit options and asked if we had hit them.
 
-What it gave me: Concrete edits scoped under arcade_project/: expanded arcade_project/data/generate_data.py for larger/noisier synthetic exports; hardened arcade_project/data/benchmark_platform_from_csv.py against bad cells; README tweaks for dataset story; starter AI-disclosure wording.
+**What it gave us:** Went through each one and said which were done, which were partial, which weren't there. Gave file paths for where things were implemented.
 
-What I actually used: I kept generator and benchmark changes after code review. I revised disclosure text across later chats. Full platform ingestion from CSV was not wired into runtime DataIngest in my branch (arcade_project/platform_server/data_ingest.py remained a small stub seeding demo users), so loud synthetic CSV testing stayed primarily tied to benchmark_platform_from_csv.py unless we later merged broader ingest.
+**What we actually used:** Used it to figure out what to test before the demo. Didn't count anything as done until we actually ran the client and server together.
 
+---
 
-Conversation 3
-Tool used: Cursor (Agent)
+### Conversation 4
+**Tool used:** Cursor (Agent)
 
-What I asked: Did we hit all of these extra credit marks? [Listed: all class games playable, cohesive UI, load testing + plots + bottlenecks, API docs + resilience, chat moderation + rate limit/mute/toxicity across games, persistence on restart.]
+**What we asked:** Asked it to write the full AI write-up for the project with specific prompt examples.
 
-What it gave me: A feature-by-feature pass with file pointers: e.g. chat moderation paths in platform_server/chat.py, persistence files under platform_server, UI modules under client/, benchmark script for load-style testing, GameRegistry / server wiring. Each line was tagged roughly as met, partial, or not evidenced from static reading alone.
+**What it gave us:** A long essay-style disclosure covering everything we used AI for.
 
-What I actually used: I used it as a demo-prep checklist and to find weak spots to test live (multiplayer, moderation edge cases, restart persistence). I did not treat “met in static analysis” as automatic full credit without running the client and server together.
+**What we actually used:** Pulled some ideas from it but switched to this shorter conversation-log format to match the course handout better.
 
+---
 
-Conversation 4
-Tool used: Cursor (Agent)
+### Conversation 5
+**Tool used:** Cursor (Agent)
 
-What I asked: Can you do the AI write-up for the entire project? Include specific examples of prompts I used and what I changed or added.
+**What we asked:** What does data ingest actually do, and how do we test the synthetic data?
 
-What it gave me: A longer narrative-style disclosure: scope of AI help, example prompts, categories of edits (data, server, client), and honest caveats (e.g. ingest vs benchmark paths).
+**What it gave us:** Explained that data_ingest.py wasn't doing a full load from the CSVs at runtime — it was just seeding a small set of demo users. The big CSV stress testing was separate in the benchmark script.
 
-What I actually used: I merged ideas that matched commits I actually made; I later asked for this shorter “Conversations Log” template to match the course handout format instead of one long essay.
+**What we actually used:** Helped us explain the project accurately on the slides and README. Knew which script to actually run for stress testing vs what the live server does.
 
+---
 
-Conversation 5
-Tool used: Cursor (Agent)
+## Cursor Composer Thread (Client, Server UI, Write-Up)
 
-What I asked: What does data ingest do? How can I test the synthetic data that was made?
+---
 
-What it gave me: Explanation that DataIngest.load_data (data_ingest.py) was not a full ETL from our giant CSVs in the version we discussed — it registered a small fixed set of accounts for classroom demo — and that synthetic stress lived in generate_data + benchmark_platform_from_csv. It suggested command-style validation steps.
+### Conversation 6
+**Tool used:** Cursor (Composer)
 
-What I actually used: I used it to explain the project honestly on slides/README and to know which script to run for CSV stress vs which code path the live server uses at startup.
+**What we asked:** Can you show all the methods in a UML diagram?
 
+**What it gave us:** A Mermaid class diagram with all the major components — ArcadeClient, ServerConnection, PlatformServer, all the game wrappers, data structure classes, etc. Full method lists for each.
 
-──────────────────────────────────────────────────────────────
-This Composer / Cursor thread (client, server UI, write-up)
-──────────────────────────────────────────────────────────────
+**What we actually used:** Kept it as a reference for the architecture section. Had to paste it into a separate Mermaid viewer to actually render it since the IDE preview was just showing raw text.
 
+---
 
-Conversation 6
-Tool used: Cursor (Composer)
+### Conversation 7
+**Tool used:** Cursor (Composer)
 
-What I asked: Can you show all of the methods in each thing (UML)?
+**What we asked:** Needed material about networking for the presentation. Also asked why env variables are still needed even when SSH port forwarding is set up — teammates were having trouble connecting.
 
-What it gave me: It kept a Mermaid classDiagram in canvases/updated-uml-architecture.canvas.tsx for relationships, then added separate string blocks listing full method names for major types: ArcadeClient, ServerConnection, PlaySessionScreen; game wrappers (Ellie + Deven/Kimberly/Mennah/Vraj); Level / YSortCameraGroup / NetworkClient / Character (Deven paths as reference); PlatformServer and supporting server modules (Accounts, Matchmaking, Chat, Ratings, PlayerSearch, Leaderboard). It noted that some canvas hosts show Mermaid as source text rather than rendering a graphic.
+**What it gave us:** Explained that forwarding just creates a local socket, the app still needs to point at the right host and port. Gave us a patch for arcade_client.py to read SERVER_HOST and SERVER_PORT from environment variables with a fallback to localhost.
 
-What I actually used: I kept the canvas as the living architecture + method index. For slides I would copy Mermaid into a viewer that renders, or export from a Mermaid-capable tool, because IDE preview behavior varies.
+**What we actually used:** Kept the env variable patch. Really helped teammates connect without editing source code every time.
 
+---
 
-Conversation 7
-Tool used: Cursor (Composer)
+### Conversation 8
+**Tool used:** Cursor (Composer)
 
-What I asked: Material for a networking presentation; why environment variables are still needed when SSH port-forwarding is already set up; teammates (e.g. MobaXterm) failing to connect when the client hard-coded the platform port.
+**What we asked:** Can we just delete the play stats screen?
 
-What it gave me: Concept split: forwarding only creates local listening sockets; the app must still target the correct host:port pair. Two hops in our setup — platform RPC (often tunneled to local 9000) vs C++ game server (often ARCADE_GAME_HOST / ARCADE_GAME_PORT, e.g. 18080). It implemented configurable platform endpoint in arcade_project/client/arcade_client.py: SERVER_HOST/SERVER_PORT from ARCADE_PLATFORM_HOST and ARCADE_PLATFORM_PORT with safe int parsing and fallback to 127.0.0.1:9000.
+**What it gave us:** Asked us to clarify — did we want to just hide it in the UI or fully remove it from the server too? Didn't do anything until we answered.
 
-What I actually used: I kept the env-based platform connection patch and reused the explanation on slides/notecards. Teammates can set powershell $env:... or MobaXterm env before python client.py without editing source.
+**What we actually used:** Didn't end up deleting it in this thread. Left a note about what to grep for if we ever do.
 
+---
 
-Conversation 8
-Tool used: Cursor (Composer)
+### Conversation 9
+**Tool used:** Cursor (Composer)
 
-What I asked: Can we delete play stats?
+**What we asked:** New players weren't showing up in the player search after registering.
 
-What it gave me: Clarification only — deletion could mean (A) hide Stats / My Profile UI and leave server methods, or (B) remove server endpoint get_player_stats, playerstats.py usage, and all client wiring. It asked which scope before deleting.
+**What it gave us:** Found a sorting/casing mismatch in player_search.py — the index was sorted but search wasn't normalizing to lowercase, so prefix matching was failing. Gave a patch with case-insensitive sort keys and a lowercase normalize on search.
 
-What I actually used: I did not choose A or B in this thread, so no deletion PR was produced from that single exchange. If we remove it later, we should grep for get_player_stats, StatsScreen, and RequestDispatcher allowed_methods together.
+**What we actually used:** Kept the fix. Also recommended restarting the server after the update so the index rebuilds cleanly.
 
+---
 
-Conversation 9
-Tool used: Cursor (Composer)
+### Conversation 10
+**Tool used:** Cursor (Composer)
 
-What I asked: Newly registered users did not appear in player search.
+**What we asked:** Header text on the Player Search screen was overlapping (sent a screenshot).
 
-What it gave me: Code trace showed register() already indexed new users server-side in some flows; the failure mode aligned with sorted-index vs lowercase prefix search mismatch. Patch in arcade_project/platform_server/player_search.py: case-insensitive sort keys for bisect/_sorted_insert; search_prefix normalizes prefix to lower(); optional full-scan fallback so old in-memory indexes still return matches until restart. Separate context: PlatformServer builds player_search from accounts at startup — any bug there would also affect visibility.
+**What it gave us:** Rewrote the layout math in PlayerSearchScreen so everything was computed from actual font heights instead of hard-coded Y values.
 
-What I actually used: I kept the PlayerSearch sorting/search fix and recommended restarting platform server once after upgrade so indexes are cleanly ordered.
+**What we actually used:** Kept it. Also turned out to help on machines with different DPI/font rendering over X11.
 
+---
 
-Conversation 10
-Tool used: Cursor (Composer)
+### Conversation 11
+**Tool used:** Cursor (Composer)
 
-What I asked: Fix overlapping header text on the Player Search screen (screenshot).
+**What we asked:** The chat window was showing way more than 20 messages — were we actually using the circular buffer?
 
-What it gave me: Refactor of PlayerSearchScreen.__init__ in arcade_project/client/screens.py: computed _title_y, _subtitle_y from TITLE_FONT/SMALL_FONT heights; derived search_y, list_top, list_height so the Back button row, title block, search field, and two-column results/profile layout no longer use colliding hard-coded Y coordinates.
+**What it gave us:** Server side was fine and was using CircularBuffer(20). The problem was on the client — PlaySessionScreen was just appending to a list forever with no eviction. Added a _MAX_CHAT_LINES = 20 cap with front-trim.
 
-What I actually used: I kept the layout changes; they also help on machines where system font metrics differ (remote X11, different DPI).
+**What we actually used:** Kept the client cap. Server was already correct so no changes there.
 
+---
 
-Conversation 11
-Tool used: Cursor (Composer)
+### Conversation 12
+**Tool used:** Cursor (Composer)
 
-What I asked: Chat UI showed more than 20 lines — are we using the circular buffer?
+**What we asked:** Match history layout was overlapping and we needed to be able to scroll through more than 18 rows.
 
-What it gave me: Server-side arcade_project/platform_server/chat.py documents and implements per-session storage with datastructures.circular_buffer.CircularBuffer default size 20. Client PlaySessionScreen had been appending every poll + local send into chat_lines without eviction. Fix: _MAX_CHAT_LINES = 20 and trim from the front in add_chat() when over cap so displayed history matches server retention semantics.
+**What it gave us:** Rewrote the MatchHistoryScreen layout with dynamic Y positions and added MOUSEWHEEL scrolling. Also clipped the draw surface so scrolled rows don't bleed outside the panel.
 
-What I actually used: I kept the client cap. Note: server still returns up to 20 per channel; client no longer accumulates unbounded duplicates across refreshes beyond that window.
+**What we actually used:** Kept it all. Works together with the sort button from conversation 14.
 
+---
 
-Conversation 12
-Tool used: Cursor (Composer)
+### Conversation 13
+**Tool used:** Cursor (Composer)
 
-What I asked: Match History layout overlapped; need to scroll through all loaded rows (e.g. 36 loaded, 18 visible).
+**What we asked:** Does insertion sort actually get used in history and the game catalog? Also why does merge sort show up? Can you explain how merge sort works? Also needed notecard stuff for sorting and networking.
 
-What it gave me: MatchHistoryScreen updates in arcade_project/client/screens.py: dynamic header/control Y positions; table area as _table_box with height from remaining rect; _row_scroll with MOUSEWHEEL when cursor over table; pygame surface clip during row draw so scrolling does not paint outside the panel; loop draws all rows, not capped at 18; refresh() resets scroll to top.
+**What it gave us:** Confirmed insertion_sort is used in history.py and for list_games, and merge_sort is used in leaderboard.py. Gave a plain-English breakdown of merge sort steps and why it's O(n log n) vs insertion sort's O(n^2). Gave bullet points for the networking notecard too.
 
-What I actually used: I kept scrolling + layout fix; combined with Conversation 14 for sort control, filters stay readable.
+**What we actually used:** Used it for the presentation notecards. No code changes came out of this one.
 
+---
 
-Conversation 13
-Tool used: Cursor (Composer)
+### Conversation 14
+**Tool used:** Cursor (Composer)
 
-What I asked: Whether insertion sort is used for history and game catalog; why merge sort appears; how merge sort works; short notecard scripts for sorting and networking.
+**What we asked:** How does sorting work through the API, and can we add a sort button to the match history screen?
 
-What it gave me: Accurate map to code: insertion_sort from datastructures/sorting.py used in platform_server/history.py (get_player_history keys: date default via ended_at+game_id, score, duration) and in platform_server/server.py list_games (popularity, rating, recency). merge_sort used in platform_server/leaderboard.py for rank ordering. Plain-language merge sort steps (split, recurse, merge) and O(n log n) vs insertion O(n^2) tradeoff for larger n. Bulleted networking memo: platform vs game server, session channels, tunnel + env vars, reliability themes.
+**What it gave us:** Showed us get_game_list_sorted and get_player_history_sorted in connection.py. Added a Sort button to MatchHistoryScreen with modes for date, score, and duration.
 
-What I actually used: Slide/notecard content only for this exchange; no mandatory code change from the Q&A itself.
+**What we actually used:** Kept it. Graders can click Sort and actually see the insertion-sorted order change live.
 
+---
 
-Conversation 14
-Tool used: Cursor (Composer)
+### Conversation 15
+**Tool used:** Cursor (Composer)
 
-What I asked: How to sort games and history from the API; then explicitly requested a UI control for match history sorting.
+**What we asked:** Do avatar changes show up in the player search results?
 
-What it gave me: Documented client/connection.py: get_game_list_sorted(sort_by, descending) → list_games RPC; get_player_history_sorted(..., sort_by, descending, game, start_date, end_date, outcome) → player_history. Implementation: MatchHistoryScreen gained _sort_modes ("date","score","duration"), _btn_sort, on_refresh signature extended to pass sort mode; arcade_client._load_history_data(..., sort_by="date") forwards to get_player_history_sorted. Status string includes active sort for debugging demos.
+**What it gave us:** Client side was already reading the avatar field. Server side wasn't syncing it to the player search index after set_avatar was called. Patched server.py to call _sync_player_search_profile after avatar updates.
 
-What I actually used: I kept the end-to-end wiring so graders can click Sort and see insertion-sorted order change without Postman.
+**What we actually used:** Kept the server sync patch.
 
+---
 
-Conversation 15
-Tool used: Cursor (Composer)
+### Conversation 16
+**Tool used:** Cursor (Composer)
 
-What I asked: Whether avatar changes propagate to Player Search display.
+**What we asked:** Update the AI write-up file to match the course template format.
 
-What it gave me: Client PlayerSearchScreen already picks profile["avatar"] and maps 1–3 to avatar PNGs. Gap was server player_search profile HashTable missing avatar and set_avatar not resyncing search index. Patch in platform_server/server.py: include profile["avatar"] from account when building initial index, in _sync_player_search_profile, default on register; set_avatar calls accounts.set_avatar then _sync_player_search_profile and _save_runtime_state on success.
+**What it gave us:** A first draft with shorter bullets covering conversations 6-16.
 
-What I actually used: I kept the server propagation so search results and profile pane stay consistent after avatar picks on Stats screen.
+**What we actually used:** Used it as a base and expanded it with more technical detail and proper file references.
 
+---
 
-Conversation 16
-Tool used: Cursor (Composer)
+## Claude (claude.ai) Sessions
 
-What I asked: Update AI-WriteUp.txt in the same course template, incorporating this chat’s topics.
+---
 
-What it gave me: A first pass at Conversations 6–16 with shorter bullets.
+### Conversation 17
+**Tool used:** Claude
 
-What I actually used: This revision — same template, but with expanded “What it gave me” / “What I actually used” paragraphs, file paths, and technical notes so instructors can see exactly what changed and why. I will still add a transcript LINK at the top if the syllabus requires it.
+**What we asked:** Needed all the core data structure files built from scratch — hash_table.py, linked_list.py, circular_buffer.py, bloom_filter.py, sorting.py, node.py, accounts.py, chat.py, and the other platform server files. Also needed a test file.
+
+**What it gave us:** Full implementations of everything. HashTable uses FNV-1a hashing with separate chaining through LinkedList. BloomFilter uses an ArrayList bit array. sorting.py has both merge sort and insertion sort with key/reverse support. accounts.py chains HashTable and BloomFilter together. chat.py maps game sessions to CircularBuffers. Test file matches the lab PASS/FAIL style with a check() helper.
+
+**What we actually used:** Kept all of it. Had to correct the author name in the headers mid-session — it put a wrong name in at first — then regenerated everything with Author: Ellie Lutz.
+
+---
+
+### Conversation 18
+**Tool used:** Claude
+
+**What we asked:** A bunch of bugs in Ellie's game at once: chat wasn't syncing between players, ghost players were sticking around after leaving, pressing SPACE in chat was triggering the attack, inventory was getting cut off, and sprites weren't loading.
+
+**What it gave us:** Found the root cause for all five. Chat was broken because _session_id was never being set on the connection object so every message went out with game_id: None. Ghost players were happening because leave never actually closed the TCP socket to the C++ server. SPACE conflict needed an input_enabled flag on Character since the game uses key polling not event handling. Inventory was using hardcoded screen dimensions instead of reading from the surface. Sprite paths were relative and broke depending on which directory you launched from — fixed with GAME_DIR absolute paths using os.path.abspath.
+
+**What we actually used:** Kept all five fixes. The GAME_DIR pattern is now used everywhere in the game folder.
+
+---
+
+### Conversation 19
+**Tool used:** Claude
+
+**What we asked:** Needed player_search.py and match history features added to the platform server. Also mentioned Mennah had already written a history.py.
+
+**What it gave us:** Caught that Mennah already had a history.py and said to extend it instead of replacing it. Wrote player_search.py using HashTable + a sorted ArrayList for prefix scanning. Extended history.py minimally by adding score, outcome, start_time, and a get_filtered_history method. Wired both into server.py. Wrote test files for both in the lab style — 14 player search tests and 12 history tests, all passing.
+
+**What we actually used:** Kept everything. Had to fix one import issue partway through (relative to flat-style imports) and then all tests passed.
+
+---
+
+### Conversation 20
+**Tool used:** Claude
+
+**What we asked:** How do I get this running on my personal laptop? Also needed a guide for teammates to connect as clients.
+
+**What it gave us:** Steps to clone the repo and install pygame. A full teammate guide covering only the client side — SSH tunnel setup, setting env variables (ARCADE_PLATFORM_HOST, ARCADE_PLATFORM_PORT, ARCADE_GAME_PORT), and running client.py. Also explained that Temple's firewall blocks the 500xx ports from off-campus so SSH tunneling is the only way to connect remotely.
+
+**What we actually used:** Kept the guide. The firewall explanation ended up in the presentation networking section too.
+
+---
+
+### Conversation 21
+**Tool used:** Claude
+
+**What we asked:** A bunch of git problems — pycache files causing conflicts on every rebase, VS Code push failing with ECONNREFUSED, teammates pushing at the same time causing branch issues, and GitHub showing fewer commits than expected.
+
+**What it gave us:** pycache was already in git before .gitignore was added, so needed git rm -r --cached to stop tracking it. VS Code auth issue was because we were still on HTTPS remote — switching to SSH with git remote set-url fixed it. Divergent branch just needed git pull --rebase before every push. The missing commits were because Ellie's commits were split across her Temple email and Gmail — adding Gmail to GitHub account settings fixed the contribution count.
+
+**What we actually used:** Applied all four fixes. The pycache removal got committed to main so everyone benefits.
+
+---
+
+### Conversation 22
+**Tool used:** Claude
+
+**What we asked:** Several UI things at once — per-game stats screens, leaderboard persistence not saving right, author names missing from the game browser rows, sprite scaling wrong in Vraj's game, Player Search not wired into navigation, and some layout overlaps.
+
+**What it gave us:** Full regenerations of arcade_client.py and screens.py with all of it fixed. Also caught mid-session that we had a set() being used to track seen game IDs and a tuple being used instead of an ArrayList — both are banned data structures for this project — and replaced them with HashTable and ArrayList.
+
+**What we actually used:** Kept everything. The data structure catch was the most important part since that would have been a violation.
+
+---
+
+### Conversation 23
+**Tool used:** Claude
+
+**What we asked:** Asked for help understanding the design doc structure and what each section needed — mainly the data structure rationale and complexity analysis sections.
+
+**What it gave us:** Walked through why each structure was the right pick (e.g., why HashTable beats BST for login lookups, why Heap is better than a sorted list for the matchmaking queue). Also helped explain trade-offs in plain language for the write-up.
+
+**What we actually used:** Used the explanations as a starting point for the design doc sections, then rewrote in our own words.
+
+---
+
+### Conversation 24
+**Tool used:** Claude
+
+**What we asked:** How do we actually test that our data structures are working before plugging them into the server?
+
+**What it gave us:** Explained the testing structure — individual unit tests per data structure in datastructures/tests/, then integration-style tests through the server. Gave examples of what to check: does HashTable resize correctly at load factor, does CircularBuffer actually overwrite old messages, does BloomFilter have no false negatives.
+
+**What we actually used:** Used it to prioritize what to test first. Wrote the actual test cases ourselves.
+
+---
+
+### Conversation 25
+**Tool used:** Claude
+
+**What we asked:** Needed a PowerPoint outline for the final presentation.
+
+**What it gave us:** Full slide-by-slide outline covering project overview, all five games, data structure deep dives with complexity tables, empirical benchmarking slides, dataset description, a live demo sequence, and design tradeoffs section.
+
+**What we actually used:** Used the outline as the skeleton for the actual deck. Rearranged some slides and filled in our own content and screenshots.
+
+---
